@@ -101,6 +101,62 @@ jobs:
         if: always()
         run: ./ed-fi-api-v8/reset.sh --force
 
+  kit-smoke-minimal-pwsh:
+    name: Kit smoke test (minimal template, PowerShell)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # Same budget as the Bash minimal job; this one drives the stack through the .ps1 scripts so
+    # PowerShell-only regressions fail CI instead of relying on manual QA.
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Generate the TLS certificate
+        run: ./ed-fi-api-v8/ssl/generate-certificate.ps1
+
+      - name: Show Docker and Compose versions
+        run: |
+          docker version
+          docker compose version
+
+      - name: Start the kit (minimal template)
+        run: ./ed-fi-api-v8/start.ps1 -Template minimal
+
+      - name: Run the smoke test
+        run: ./ed-fi-api-v8/smoke-test.ps1
+
+      - name: Create a credential for each integration shape
+        working-directory: ed-fi-api-v8
+        run: |
+          ./new-credential.ps1 -Shape sis -Name ci-sis
+          ./new-credential.ps1 -Shape assessment -Name ci-assessment
+          ./new-credential.ps1 -Shape warehouse -Name ci-warehouse
+
+      # From here on, run regardless of whether the steps above succeeded.
+      - name: Collect docker compose logs
+        if: always()
+        working-directory: ed-fi-api-v8
+        run: docker compose logs --no-color --timestamps > compose-logs.txt 2>&1
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kit-smoke-logs-minimal-pwsh
+          path: |
+            ed-fi-api-v8/logs/
+            ed-fi-api-v8/compose-logs.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Tear down the stack
+        if: always()
+        run: ./ed-fi-api-v8/reset.ps1 -Force
+
   kit-smoke-populated:
     name: Kit smoke test (populated template)
     # This is an expensive job - do not run it on every pull request
