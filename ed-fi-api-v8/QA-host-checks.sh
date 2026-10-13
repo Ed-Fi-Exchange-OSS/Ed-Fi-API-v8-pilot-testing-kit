@@ -27,7 +27,7 @@ FAILS=()
 
 usage() {
     cat <<'EOF'
-Usage: tasks/host-checks.sh <check>... | all | list
+Usage: QA-host-checks.sh <check>... | all | list
 
 Start the kit first (./start.sh). Run `list` to see the checks; `all` runs every scripted check
 in a safe order, ending with the destructive one (bad-checksum resets the stack).
@@ -427,7 +427,7 @@ for tool in docker curl jq; do command -v "$tool" >/dev/null || { echo "$tool is
 
 for c in "$@"; do
     fn="check_${c//-/_}"
-    declare -F "$fn" >/dev/null || { echo "Unknown check: $c (see: tasks/host-checks.sh list)" >&2; exit 2; }
+    declare -F "$fn" >/dev/null || { echo "Unknown check: $c (see: QA-host-checks.sh list)" >&2; exit 2; }
     "$fn"
 done
 

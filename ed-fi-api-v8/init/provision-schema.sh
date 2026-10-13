@@ -4,16 +4,15 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-schema (Task 4): provisions the DS 5.2 schema (tables, indexes, and the dms."EffectiveSchema"
+# init-schema: provisions the DS 5.2 schema (tables, indexes, and the dms."EffectiveSchema"
 # marker row) into PostgreSQL from the staged ApiSchema files, using EdFi.Api.SchemaTools (tools
-# image; see tools/README.md for the exact CLI). Runs after db and config are both healthy -- the
-# spike provisioned after CMS had already deployed its own schema, and that order is kept here to
-# avoid concurrent DDL against the same database (spike-notes Q5) -- and after init-api-schema has
-# staged the volume this mounts read-only.
+# image; see tools/README.md for the exact CLI). Runs after db and config are both healthy -- after CMS has
+# already deployed its own schema, to avoid concurrent DDL against the same database -- and after
+# init-api-schema has staged the volume this mounts read-only.
 #
 # Idempotent: skips when dms."EffectiveSchema" already holds the hash `api-schema-tools hash`
 # computes fresh from the staged schema; dies, naming both hashes, when it holds a different one,
-# since that state needs a reset (`docker compose down -v`) rather than a re-run (spike-notes Q5).
+# since that state needs a reset (`docker compose down -v`) rather than a re-run.
 
 set -eu
 
@@ -70,7 +69,7 @@ log "$STEP_HASH" "expected effective schema hash: $EXPECTED_HASH"
 # ------------------------------------------------------------------------------------------------
 # Step b: already provisioned? Table existence and row existence stay two separate queries, as in
 # init-identity.sh: a query combining to_regclass(...) with a SELECT FROM the same absent table
-# fails to *plan*, not just to not-match (spike-notes Q2).
+# fails to *plan*, not just to not-match.
 # ------------------------------------------------------------------------------------------------
 
 TABLE_EXISTS=$(kit_psql -f - <<'SQL'

@@ -4,7 +4,7 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-template (Tasks 8-9): loads a pinned Data Standard 5.2 template into a fresh database, through
+# init-template: loads a pinned Data Standard 5.2 template into a fresh database, through
 # a throwaway SeedLoader credential created and torn down for this run. DATABASE_TEMPLATE=minimal
 # loads descriptors and SchoolYearType only; DATABASE_TEMPLATE=populated adds the DS 5.2 sample data
 # (Samples/Sample XML/). A kit-owned marker table records what was loaded, so a rerun is a no-op and a
@@ -15,9 +15,7 @@
 # Runs after DMS is healthy (it loads through the DMS REST API and BulkLoadClient), and after
 # init-identity/init-datastore, whose PilotKitAdmin client this script authenticates as.
 #
-# Source: spike-notes.md Q9 (the Data Standard zip, SchoolYearType precondition, BulkLoadClient
-# invocation and timings, the two-tier populated staging) and Q7 (the vendor/application flow, the
-# Location-header id, DMS token via Basic auth). GitHub archive zips aren't guaranteed byte-stable, so
+# GitHub archive zips aren't guaranteed byte-stable, so
 # DATA_STANDARD_CONTENT_SHA256 and (populated only) DATA_STANDARD_SAMPLES_SHA256 pin hashes of the
 # extracted content, not the zip itself.
 
@@ -43,7 +41,7 @@ START_EPOCH=$(date +%s)
 VENDOR_COMPANY="Pilot Kit Seed Loader"
 APPLICATION_NAME="Pilot Kit Seed Loader"
 DATASTORE_NAME="Pilot Kit"
-# Populated's sample data uses both uri://ed-fi.org and uri://gbisd.edu (spike-notes Q9); the vendor
+# Populated's sample data uses both uri://ed-fi.org and uri://gbisd.edu; the vendor
 # always gets both, on both templates, since it's reused across runs and carries no secret.
 SEED_NAMESPACE_PREFIXES="uri://ed-fi.org,uri://gbisd.edu"
 
@@ -283,11 +281,11 @@ fi
 # ------------------------------------------------------------------------------------------------
 # Step d: the SeedLoader credential. The vendor is reused across runs (it carries no secret); the
 # application is recreated every attempt and deleted after a successful load, so the credential never
-# outlives initialization (spike-notes Q7/Q9: SeedLoader has no Read and can write anything). Any
+# outlives initialization. Any
 # leftover application from an earlier failed run is deleted first, matched by name and before the
 # vendor is touched, so a vendor that needs recreating (cms_ensure_vendor) never has an application
 # still pointing at it. Populated needs educationOrganizationIds for the sample LEA, ESC, PSI, and
-# community provider (spike-notes Q9); minimal keeps the empty list Task 8 used.
+# community provider; minimal keeps the empty list.
 # ------------------------------------------------------------------------------------------------
 
 provision_seed_credential() {
@@ -393,7 +391,7 @@ seed_school_year_types
 # ------------------------------------------------------------------------------------------------
 # Step g: BulkLoadClient loads the descriptor tier, then (populated only) the resource tier. `-b` is
 # the DMS base including /api; BulkLoadClient reads /api/metadata/specifications and uses the local
-# `-x` XSDs instead of downloading them (spike-notes Q9). A non-zero exit fails the step that produced
+# `-x` XSDs instead of downloading them. A non-zero exit fails the step that produced
 # it, naming which tier; nothing here parses the console output for a partial-success count, so any
 # failure aborts the whole load.
 # ------------------------------------------------------------------------------------------------
@@ -421,7 +419,7 @@ if [ "$DATABASE_TEMPLATE" = "populated" ]; then
 fi
 
 # ------------------------------------------------------------------------------------------------
-# Step h: verify. SeedLoader has no Read (spike-notes Q7/Q9), so this reads directly from PostgreSQL
+# Step h: verify. SeedLoader has no Read, so this reads directly from PostgreSQL
 # instead of the API. Populated also checks students and schools, in edfi."Student"/edfi."School"
 # (relational tables generated from the DS 5.2 ApiSchema -- confirmed by name against a real
 # `api-schema-tools ddl emit`/`ddl provision` run, not guessed).
@@ -440,7 +438,7 @@ SQL
     if [ "$_vl_count" -eq 0 ]; then
         die "$STEP_VERIFY" "dms.\"Descriptor\" has 0 rows after loading; expected more than 0"
     fi
-    log "$STEP_VERIFY" "dms.\"Descriptor\" has $_vl_count rows (spike baseline: 3303 on a clean minimal load)"
+    log "$STEP_VERIFY" "dms.\"Descriptor\" has $_vl_count rows (baseline: 3303 on a clean minimal load)"
 
     if [ "$DATABASE_TEMPLATE" = "populated" ]; then
         _vl_student_count=$(kit_psql -f - <<'SQL'
@@ -470,7 +468,7 @@ SQL
 
         log "$STEP_VERIFY" \
             "edfi.\"Student\" has $_vl_student_count rows, edfi.\"School\" has $_vl_school_count rows" \
-            "(spike baseline: 960 students, 3 schools)"
+            "(baseline: 960 students, 3 schools)"
     fi
 }
 
@@ -499,7 +497,7 @@ case "$_cleanup_status" in
         log "$STEP_CLEANUP" \
             "WARNING: could not delete the SeedLoader application $CMS_APPLICATION_ID" \
             "(HTTP $_cleanup_status). DELETE /v3/applications is unverified against real CMS" \
-            "(spike-notes gap) -- remove it manually if this persists."
+            "-- remove it manually if this persists."
         ;;
 esac
 

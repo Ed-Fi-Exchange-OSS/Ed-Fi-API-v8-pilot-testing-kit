@@ -78,9 +78,9 @@ services:
       CMS_IDENTITY_ENCRYPTION_KEY: ${CMS_IDENTITY_ENCRYPTION_KEY:?CMS_IDENTITY_ENCRYPTION_KEY must be set in .env}
       # Must equal IdentitySettings__HashingIterations in compose.core.yml.
       HASH_ITERATIONS: "210000"
-      # Must equal AppSettings__ManagementEndpoints__RequiredRole in compose.core.yml (Task 18).
+      # Must equal AppSettings__ManagementEndpoints__RequiredRole in compose.core.yml.
       DMS_CLAIMSET_RELOAD_ROLE: ${DMS_CLAIMSET_RELOAD_ROLE:-dms-management-operator}
-      # Direct, without the NGINX path base; the spike confirmed /connect/token answers here.
+      # Direct, without the NGINX path base; /connect/token answers here.
       CONFIG_BASE_URL: http://config:8081
     volumes:
       - ./init:/init:ro
@@ -111,7 +111,7 @@ services:
     command: ["sh", "/init/datastore.sh"]
     environment:
       CMS_ADMIN_CLIENT_SECRET: ${CMS_ADMIN_CLIENT_SECRET:?CMS_ADMIN_CLIENT_SECRET must be set in .env}
-      # Direct, without the NGINX path base; the spike confirmed /connect/token answers here.
+      # Direct, without the NGINX path base; /connect/token answers here.
       CONFIG_BASE_URL: http://config:8081
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-edfi_datamanagementservice}
@@ -125,7 +125,7 @@ services:
     logging: *logging
 
   # Provisions the DS 5.2 relational schema. Waits for CMS so the two never run DDL at the same
-  # time, as in the spike. See init/provision-schema.sh.
+  # time. See init/provision-schema.sh.
   init-schema:
     <<: *tools-image
     command: ["sh", "/init/provision-schema.sh"]
@@ -152,7 +152,7 @@ services:
     command: ["sh", "/init/claimsets.sh"]
     environment:
       CMS_ADMIN_CLIENT_SECRET: ${CMS_ADMIN_CLIENT_SECRET:?CMS_ADMIN_CLIENT_SECRET must be set in .env}
-      # Direct, without the NGINX path base; the spike confirmed /connect/token answers here.
+      # Direct, without the NGINX path base; /connect/token answers here.
       CONFIG_BASE_URL: http://config:8081
       CLAIMSETS_DIR: /claimsets
       # FR-CLAIM-14: after re-importing a changed claim set, call DMS's reload endpoint so
@@ -212,7 +212,7 @@ services:
     user: "0:0"
     environment:
       CMS_ADMIN_CLIENT_SECRET: ${CMS_ADMIN_CLIENT_SECRET:?CMS_ADMIN_CLIENT_SECRET must be set in .env}
-      # Direct, without the NGINX path base; the spike confirmed /connect/token answers here.
+      # Direct, without the NGINX path base; /connect/token answers here.
       CONFIG_BASE_URL: http://config:8081
       # Direct, without the NGINX path base; matches DMS_PATH_BASE so the two never drift apart.
       DMS_BASE_URL: http://dms:8080/${DMS_PATH_BASE:-api}

@@ -4,7 +4,7 @@
 # See the LICENSE and NOTICES files in the project root for more information.
 
 <#
-Shared PowerShell helpers for the Task 12 lifecycle scripts (start.ps1, stop.ps1, reset.ps1,
+Shared PowerShell helpers for the lifecycle scripts (start.ps1, stop.ps1, reset.ps1,
 bootstrap.ps1), available to any later host wrapper that wants them. Dot-source it, don't invoke it:
     . (Join-Path $PSScriptRoot 'scripts/lib.ps1')
 This mirrors scripts/lib.sh function-for-function so the two shells produce the same observable

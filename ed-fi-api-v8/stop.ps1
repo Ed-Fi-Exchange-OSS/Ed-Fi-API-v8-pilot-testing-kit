@@ -7,7 +7,7 @@
 
 <#
 .SYNOPSIS
-    Stops the Ed-Fi API v8 pilot kit (Task 12).
+    Stops the Ed-Fi API v8 pilot kit.
 
 .DESCRIPTION
     Stops the stack (docker compose stop) without touching any persisted data (FR-LIFE-5). All

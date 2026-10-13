@@ -4,7 +4,7 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# Host wrapper for Task 13 (Task 12's start/stop/reset/bootstrap are its siblings, but this script
+# Host wrapper (the start/stop/reset/bootstrap scripts are its siblings, but this script
 # depends on none of them and is self-contained). Validates arguments locally for fast feedback, then
 # hands them, unmodified, to init/new-credential.sh inside the tools container:
 #   docker compose run --rm --no-deps --user 0:0 tools sh /init/new-credential.sh ...
@@ -14,8 +14,7 @@
 
 set -euo pipefail
 
-# Git Bash on Windows otherwise rewrites container paths such as /init/... into Windows paths
-# (spike-notes Q1).
+# Git Bash on Windows otherwise rewrites container paths such as /init/... into Windows paths.
 export MSYS_NO_PATHCONV=1
 
 # shellcheck disable=SC1007  # CDPATH= intentionally empty: stops `cd` resolving against CDPATH

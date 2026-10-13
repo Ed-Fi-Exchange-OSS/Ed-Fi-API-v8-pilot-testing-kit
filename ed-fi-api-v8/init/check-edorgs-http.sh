@@ -4,9 +4,9 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# check-edorgs-http (Task 14, FR-EDORG-14): proves that http/edorgs.http's five baseline requests
+# check-edorgs-http (FR-EDORG-14): proves that http/edorgs.http's five baseline requests
 # have not drifted from bootstrap/baseline-edorgs.json -- the single source of truth both
-# init/bootstrap.sh (Task 10) and http/edorgs.http read. The two must never diverge in identifiers,
+# init/bootstrap.sh and http/edorgs.http read. The two must never diverge in identifiers,
 # grade levels, or school categories; this script is how that claim stays checked instead of just
 # asserted.
 #
@@ -22,7 +22,7 @@
 #      (the five baseline requests; the commented-out "add more organizations" templates at the
 #      bottom of the file are plain text starting with "#", so they never match). This relies on
 #      http/edorgs.http formatting each JSON body with the opening "{" and closing "}" alone on their
-#      own line, at column 0 -- exactly as Task 14 wrote it.
+#      own line, at column 0 -- as the file is written.
 #   3. Substitutes each "{{name}}" token in those bodies with the file variable's value, so what's
 #      compared is exactly what DMS would receive.
 #   4. Matches each bootstrap/baseline-edorgs.json entry to the http request with the same resource

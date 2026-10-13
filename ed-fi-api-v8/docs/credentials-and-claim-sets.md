@@ -61,8 +61,7 @@ organization id to read everything it's allowed to read -- `--edorg-ids` for a w
 is accepted and recorded on the application, but has no effect on what it can actually read, and the
 script warns you if you pass one.
 
-Because an SEA-scoped credential reaches every LEA and school beneath it (proven in the Phase 0
-spike: an application scoped only to SEA `99` could read and write against all three baseline
+Because an SEA-scoped credential reaches every LEA and school beneath it (an application scoped only to SEA `99` could read and write against all three baseline
 schools), scoping a SIS or assessment credential to just the SEA or just the LEA is normally enough
 -- you don't need to enumerate every school individually.
 

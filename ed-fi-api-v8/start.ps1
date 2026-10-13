@@ -7,7 +7,7 @@
 
 <#
 .SYNOPSIS
-    Starts the Ed-Fi API v8 pilot kit (Task 12).
+    Starts the Ed-Fi API v8 pilot kit.
 
 .DESCRIPTION
     A thin wrapper around `docker compose up`; the actual initialization work happens in the

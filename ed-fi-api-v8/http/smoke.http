@@ -3,7 +3,7 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# Ed-Fi API v8 pilot kit: smoke-test requests (Task 14, FR-TEST-1..3, 6..8). These are the same
+# Ed-Fi API v8 pilot kit: smoke-test requests (FR-TEST-1..3, 6..8). These are the same
 # interactions `smoke-test.sh`/`.ps1` run non-interactively; this file is for a person to run one
 # request at a time in VS Code with the "REST Client" extension and read the actual responses.
 #
@@ -16,7 +16,7 @@
 #
 # Every request below authenticates with the bootstrap (ADMIN) credential -- the only one that
 # already exists right after startup (FR-TEST-2). It is broad-access and not representative of a
-# participant integration credential (FR-BOOT-7/8); use `new-credential` (Task 13) to provision a
+# participant integration credential (FR-BOOT-7/8); use `new-credential` to provision a
 # scoped credential for authorization testing.
 #
 # @baseUrl is the DMS route through NGINX (PUBLIC_ORIGIN + DMS_PATH_BASE in .env; adjust both if you
@@ -40,7 +40,7 @@
 @highSchoolId = 990003
 
 # -------------------------------------------------------------------------------------------------
-# 1. Token (DMS proxies to CMS's /connect/token; spike-notes.md Q7). HTTP Basic auth: REST Client
+# 1. Token (DMS proxies to CMS's /connect/token). HTTP Basic auth: REST Client
 #    base64-encodes "Basic <username> <password>" itself, so {{key}}/{{secret}} are never hand-encoded.
 # -------------------------------------------------------------------------------------------------
 
@@ -105,7 +105,7 @@ Authorization: Bearer {{token.response.body.access_token}}
 # -------------------------------------------------------------------------------------------------
 # 6. Cursor paging (FR-FEAT-8, FR-TEST-6). The first pageToken comes from the Next-Page-Token header
 #    on the limit= response above, or from GET .../partitions -- pageSize alone, with no token,
-#    returns 400 "PageToken is required when pageSize is specified." (spike-notes.md Q8).
+#    returns 400 "PageToken is required when pageSize is specified."
 # -------------------------------------------------------------------------------------------------
 
 ### Cursor paging: the next page, using the token from request 5's Next-Page-Token header
@@ -128,7 +128,7 @@ Authorization: Bearer {{token.response.body.access_token}}
 
 # -------------------------------------------------------------------------------------------------
 # 8. ETag (FR-FEAT-6). If-Match with the current ETag succeeds (204, with a new ETag). Reusing that
-#    now-stale ETag on a second update returns 412 "Optimistic Lock Failed" (spike-notes.md Q8).
+#    now-stale ETag on a second update returns 412 "Optimistic Lock Failed"
 # -------------------------------------------------------------------------------------------------
 
 ### ETag: If-Match with the current ETag from request 4's read-back -- expect 204
@@ -179,11 +179,11 @@ Content-Type: application/json
 # The bootstrap (ADMIN) credential used everywhere above is scoped only to SEA 99
 # (bootstrap/README.md), and EdFiSandbox reads people through RelationshipsWithEdOrgsAndPeople, so it
 # cannot list or resolve students outside its own hierarchy -- there is no request this file can run
-# with that credential to discover a real studentUniqueId from the populated sample data
-# (spike-notes.md Q7). To run this one for real:
+# with that credential to discover a real studentUniqueId from the populated sample data.
+# To run this one for real:
 #
 #   1. Provision an assessment-shaped credential scoped to the sample LEA:
-#      `new-credential --shape assessment --edorg-ids 255901` (Task 13).
+#      `new-credential --shape assessment --edorg-ids 255901`.
 #   2. Get a token for it (repeat request 1 above with that credential's key/secret instead of
 #      {{key}}/{{secret}}).
 #   3. GET {{dataApiBaseUrl}}/ed-fi/students?limit=1 with that token to find a real studentUniqueId.
@@ -192,7 +192,7 @@ Content-Type: application/json
 # AssessmentVendor can write assessments and studentAssessments in its vendor's namespaces, but
 # cannot read schools or write enrollments (studentSchoolAssociations). So the example first
 # creates an assessment, then records a result for the existing student, reported at sample school
-# 255901001 under LEA 255901 (spike-notes.md Q9). Both POSTs are upserts, so re-running is safe.
+# 255901001 under LEA 255901. Both POSTs are upserts, so re-running is safe.
 #
 # Left as-is, or run against the minimal template (which has no students at all), DMS returns
 # 400 or 409 naming the unresolved reference -- for example a message citing "StudentReference" or

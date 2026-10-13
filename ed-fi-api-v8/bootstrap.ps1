@@ -7,7 +7,7 @@
 
 <#
 .SYNOPSIS
-    Reruns bootstrapping against a running Ed-Fi API v8 pilot kit (Task 12).
+    Reruns bootstrapping against a running Ed-Fi API v8 pilot kit.
 
 .DESCRIPTION
     Reruns bootstrapping (the bootstrap credential and the baseline education organization

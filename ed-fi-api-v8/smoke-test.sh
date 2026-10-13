@@ -4,7 +4,7 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# Host wrapper for Task 14 (Task 12's start/stop/reset/bootstrap and Task 13's new-credential are its
+# Host wrapper (the start/stop/reset/bootstrap and new-credential scripts are its
 # siblings, but this script depends on none of them and is self-contained). Runs init/smoke-test.sh
 # inside the tools container, non-interactively exercising the same path as http/smoke.http through
 # NGINX:
@@ -15,8 +15,7 @@
 
 set -euo pipefail
 
-# Git Bash on Windows otherwise rewrites container paths such as /init/... into Windows paths
-# (spike-notes Q1).
+# Git Bash on Windows otherwise rewrites container paths such as /init/... into Windows paths.
 export MSYS_NO_PATHCONV=1
 
 # shellcheck disable=SC1007  # CDPATH= intentionally empty: stops `cd` resolving against CDPATH

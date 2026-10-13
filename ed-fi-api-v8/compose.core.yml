@@ -161,7 +161,7 @@ services:
       init-schema:
         condition: service_completed_successfully
       # Defined in compose.init.yml. Importing DataWarehouse before DMS starts avoids the ~10-minute
-      # claim-set cache window (spike-notes Q6/Q9).
+      # claim-set cache window.
       init-claimsets:
         condition: service_completed_successfully
     healthcheck:

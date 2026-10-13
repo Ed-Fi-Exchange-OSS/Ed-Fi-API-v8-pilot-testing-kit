@@ -4,18 +4,18 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# new-credential (Task 13): registers a fresh vendor and application in CMS for one participant
+# new-credential: registers a fresh vendor and application in CMS for one participant
 # integration credential, and writes /runtime/credentials/<name>.json. Unlike init-bootstrap's single
 # ADMIN credential, this runs once per participant credential, on demand, via the host wrappers
 # (`new-credential.sh`/`.ps1`) or directly as
 # `docker compose run --rm --no-deps --user 0:0 tools sh /init/new-credential.sh ...` (FR-CRED-1).
 #
 # --shape selects the standard claim set (sis -> SISVendor, assessment -> AssessmentVendor,
-# warehouse -> DataWarehouse, the kit addition from Task 11), overridable with --claim-set, which is
+# warehouse -> DataWarehouse, a kit addition), overridable with --claim-set, which is
 # rejected unless GET /v3/claimSets already lists it (FR-CLAIM-10). --edorg-ids overrides the default
 # scoping; the default comes from the template actually loaded (read from the kit.initialization
-# marker, spike-notes Q7/Q9): the bootstrapped SEA (99) on minimal, the sample LEA (255901) on
-# populated, or [] for warehouse credentials, which read everything unscoped (decision 6, plan.md) so
+# marker): the bootstrapped SEA (99) on minimal, the sample LEA (255901) on
+# populated, or [] for warehouse credentials, which read everything unscoped so
 # FR-CRED-9 doesn't apply to them (FR-CRED-4/7/8/9/10).
 #
 # --namespace-prefix adds namespace prefixes to the credential's vendor, on top of the defaults
@@ -30,7 +30,7 @@
 # once by CMS, is never lost even if the verification step below fails), then a DMS token and one
 # shape-appropriate GET are attempted through the same NGINX ingress a participant uses, proving the
 # credential works with no extra configuration (FR-CRED-1). A 401 is retried a few times with backoff
-# (the spike saw none, but keeps the door open for a slow first request); any other failure leaves the
+# (none has been seen, but this keeps the door open for a slow first request); any other failure leaves the
 # credential and file in place and is reported clearly, and this script then exits non-zero.
 #
 # The key and secret are printed to stdout exactly once, deliberately (FR-CRED-2); every other line
@@ -314,7 +314,7 @@ validate_claim_set
 
 # ------------------------------------------------------------------------------------------------
 # Step f: education organization ids (FR-CRED-4/7/8/9/10). warehouse always defaults to none, since
-# DataWarehouse reads with NoFurtherAuthorizationRequired and isn't scoped (decision 6, plan.md); an
+# DataWarehouse reads with NoFurtherAuthorizationRequired and isn't scoped; an
 # explicit --edorg-ids for a warehouse credential is accepted (harmless on the application record)
 # but warned about, since it has no effect on what the credential can read.
 # ------------------------------------------------------------------------------------------------
@@ -365,7 +365,7 @@ DATA_API_BASE_URL=$(dms_discover_data_api_url "$STEP_DISCOVERY" "$DMS_BASE_URL" 
 log "$STEP_DISCOVERY" "dataApiBaseUrl: $DATA_API_BASE_URL (from Discovery urls.dataManagementApi)"
 
 # ------------------------------------------------------------------------------------------------
-# Step g: one vendor per credential, named after --name (spike-notes Q7 parses its id from the
+# Step g: one vendor per credential, named after --name (parses its id from the
 # Location header via cms_ensure_vendor). uri://gbisd.edu is added on the populated template so
 # writes against the sample data's namespace succeed too.
 # ------------------------------------------------------------------------------------------------
@@ -476,7 +476,7 @@ write_credentials_file
 
 # ------------------------------------------------------------------------------------------------
 # Step i: verify the first authorized request succeeds with no extra configuration (FR-CRED-1),
-# through the same NGINX ingress a participant uses (spike-notes Q7: no 401 window was observed, but
+# through the same NGINX ingress a participant uses (no 401 window was observed, but
 # a short retry with backoff stays cheap insurance). A failure here does not undo anything created
 # above -- the credential and file are kept, and the failure is reported clearly.
 # ------------------------------------------------------------------------------------------------

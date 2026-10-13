@@ -1,6 +1,6 @@
 # Bootstrap claim sets
 
-Each `*.json` file here is the exact request body `init/claimsets.sh` (Task 11) sends to
+Each `*.json` file here is the exact request body `init/claimsets.sh` sends to
 `POST {CONFIG_BASE_URL}/v3/claimSets/import` on CMS: `{claimSetName, resourceClaims[]}`, the same
 shape `GET /v3/claimSets/{id}/export` returns. JSON can't carry comments, so this file documents
 intent that the files themselves cannot.
@@ -67,8 +67,7 @@ source, not the conventional-pattern fallback the task allowed.
 | `snapshot` | `http://ed-fi.org/identity/claims/publishing/snapshot` |
 
 `init/claimsets.sh` is still the runtime guard: CMS reports any unrecognized `claimName` as a
-non-empty `warnings` array on import, and the script fails rather than accept a partial grant
-(spike-notes Q6).
+non-empty `warnings` array on import, and the script fails rather than accept a partial grant.
 
 ## Adding another file
 
@@ -81,7 +80,7 @@ present before calling CMS.
 DMS caches claim sets for up to 10 minutes (`ClaimSetsCacheExpirationSeconds`). A credential using a
 claim set that was just imported or changed while DMS was already running gets HTTP 500 "No security
 metadata has been configured for this resource" until that cache refreshes -- unless the cache is
-forced to reload first (Task 18, FR-CLAIM-14). `init/claimsets.sh` does this automatically for the
+forced to reload first (FR-CLAIM-14). `init/claimsets.sh` does this automatically for the
 files in this directory (see `reload_claim_set_if_running` there); this section is for reloading
 after a manual change made straight through CMS's API.
 

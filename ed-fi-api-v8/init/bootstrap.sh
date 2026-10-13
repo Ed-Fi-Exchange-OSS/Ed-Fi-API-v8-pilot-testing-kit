@@ -4,7 +4,7 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-bootstrap (Task 10): ensures the "Pilot Kit Bootstrap (ADMIN)" vendor and EdFiSandbox
+# init-bootstrap: ensures the "Pilot Kit Bootstrap (ADMIN)" vendor and EdFiSandbox
 # application exist, writes their key/secret to /runtime/bootstrap-credentials.json (the only place
 # the secret is recoverable after creation -- FR-BOOT-6), and creates any missing records from
 # bootstrap/baseline-edorgs.json: one SEA, one LEA, and three schools (FR-BOOT-2, FR-EDORG-2/4).
@@ -12,7 +12,7 @@
 # Runs after DMS is healthy (it POSTs baseline records through the DMS REST API) and after
 # init-template (the education organization category, grade level, and school category descriptors
 # it needs must already exist). Also runnable standalone with `docker compose run --rm
-# init-bootstrap` (FR-BOOT-10, Task 12's `bootstrap` script), against either template (FR-EDORG-8:
+# init-bootstrap` (FR-BOOT-10, the `bootstrap` script), against either template (FR-EDORG-8:
 # the baseline IDs don't collide with the populated template's sample organizations).
 #
 # Credential handling (FR-BOOT-4/5/6/7):
@@ -21,8 +21,7 @@
 #   - application exists, file missing/invalid/no longer works -> delete the application(s) by
 #     this name, recreate, rewrite the file, and warn (the secret was rotated)
 # The secret is never logged; only a truncated prefix of the key is, and only when a new one is
-# created. See spike-notes.md Q7 (the vendor/application flow, Location-header id, DMS token via
-# Basic auth) and Q9 (EdFiSandbox created all five baseline records on both templates).
+# created.
 #
 # Baseline records: GET the resource by its natural key first (no upsert endpoint on DMS), and POST
 # only if absent, accepting 200 or 201. A missing or corrupt record is recreated on the next run
@@ -68,7 +67,7 @@ trap cleanup EXIT INT TERM
 
 # ------------------------------------------------------------------------------------------------
 # Step a: validate baseline-edorgs.json before touching CMS or DMS: a non-empty array of
-# {resource, naturalKey, body} entries (the shape init/bootstrap.sh and http/edorgs.http, Task 14,
+# {resource, naturalKey, body} entries (the shape init/bootstrap.sh and http/edorgs.http
 # both read -- FR-EDORG-14), with at least one stateEducationAgencies entry to scope the credential.
 # ------------------------------------------------------------------------------------------------
 
@@ -159,8 +158,7 @@ ensure_bootstrap_credential() {
     _ebc_datastore_id=$(cms_find_datastore_id "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$DATASTORE_NAME")
 
     # The SEA (id 99) doesn't exist yet at this point -- education organization scoping in CMS is by
-    # id, not by a live reference, so scoping the application ahead of the record it names is fine
-    # (spike-notes Q7: the SEA scope reaches its LEA and schools once they exist too).
+    # id, not by a live reference, so scoping the application ahead of the record it names is fine.
     _ebc_body=$(jq -n \
         --argjson vendorId "$_ebc_vendor_id" \
         --arg applicationName "$APPLICATION_NAME" \
@@ -193,7 +191,7 @@ ensure_bootstrap_credential
 # Host permissions: this service runs as user "0:0" (root) because a bind-mounted .runtime/ that
 # didn't already exist on the host is created by the Docker daemon as root, which the tools image's
 # normal UID 1654 can't write to. After writing, the file (and the directory, if this script had to
-# create it) is chowned to the owner of RUNTIME_DIR itself: when Task 12's start script pre-creates
+# create it) is chowned to the owner of RUNTIME_DIR itself: when the start script pre-creates
 # .runtime/ as the host user before `up`, that ownership is preserved through the bind mount and the
 # host user ends up owning the file; when nothing pre-created it, the directory is root-owned and the
 # chown is a no-op, which is the documented fallback.
@@ -212,7 +210,7 @@ write_credentials_file() {
     _wcf_api_base_url="${PUBLIC_ORIGIN}/${DMS_PATH_BASE}"
     _wcf_warning="ADMIN credential for local testing only. It can create, read, update, and delete \
 data anywhere in the hierarchy it is scoped to and is not representative of a production \
-integration client (FR-BOOT-7/8). Use a scoped credential from new-credential (Task 13) for \
+integration client (FR-BOOT-7/8). Use a scoped credential from new-credential for \
 integration testing; see bootstrap/README.md to rotate or remove this credential (FR-BOOT-13)."
 
     _wcf_tmp=$(mktemp "$RUNTIME_DIR/.bootstrap-credentials.XXXXXX") \
@@ -255,7 +253,7 @@ else
 fi
 
 # ------------------------------------------------------------------------------------------------
-# Step d: a DMS token for the bootstrap credential (Basic auth -- spike-notes Q7).
+# Step d: a DMS token for the bootstrap credential (Basic auth).
 # ------------------------------------------------------------------------------------------------
 
 DMS_TOKEN=$(dms_token "$STEP_DMS_TOKEN" "$DMS_BASE_URL" "$BOOT_KEY" "$BOOT_SECRET")

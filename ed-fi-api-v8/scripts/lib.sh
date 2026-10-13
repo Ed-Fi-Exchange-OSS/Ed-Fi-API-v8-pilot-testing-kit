@@ -4,7 +4,7 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# Shared Bash helpers for the Task 12 lifecycle scripts (start.sh, stop.sh, reset.sh, bootstrap.sh)
+# Shared Bash helpers for the lifecycle scripts (start.sh, stop.sh, reset.sh, bootstrap.sh)
 # and available to any later host wrapper that wants them. Source it, don't execute it:
 #   . "$(dirname -- "${BASH_SOURCE[0]}")/scripts/lib.sh"
 # This file requires Bash (arrays, ${BASH_SOURCE[0]}); the one-shot container scripts under
@@ -52,8 +52,7 @@
 #                                     .env's DATABASE_TEMPLATE if the query fails or returns nothing
 #   kit_stack_running [service]      true if <service> (default "dms") is running
 
-# Git Bash on Windows otherwise rewrites container paths such as /init/... into Windows paths
-# (spike-notes Q1). Harmless when not on Git Bash.
+# Git Bash on Windows otherwise rewrites container paths such as /init/... into Windows paths. Harmless when not on Git Bash.
 export MSYS_NO_PATHCONV=1
 
 # shellcheck disable=SC1007  # CDPATH= intentionally empty: stops `cd` resolving against CDPATH

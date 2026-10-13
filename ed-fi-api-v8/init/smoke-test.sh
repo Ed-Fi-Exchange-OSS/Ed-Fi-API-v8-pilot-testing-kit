@@ -4,7 +4,7 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# smoke-test (Task 14, FR-TEST-4): runs the same path as http/smoke.http non-interactively, through
+# smoke-test (FR-TEST-4): runs the same path as http/smoke.http non-interactively, through
 # NGINX (INGRESS_BASE_URL, verified with INGRESS_CA_FILE), so TLS and routing are exercised too, not
 # just DMS directly. Called by smoke-test.sh/.ps1 as
 #   docker compose run --rm --no-deps --user 0:0 tools sh /init/smoke-test.sh
@@ -23,8 +23,8 @@
 #   3. descriptor list                      8. ETag If-Match + stale 412 (FR-FEAT-6)
 #   4. write + read-back                    9. deliberately invalid POST (FR-TEST-3)
 #   5. offset/limit paging (FR-FEAT-7)     10. assessment-style write -- populated only (FR-TEST-7/8)
-# Plus two ingress-level checks: the /data/v3 rewrite (Task 6) and the HTTP-to-HTTPS redirect
-# (Task 5), both best-effort from inside the Compose network.
+# Plus two ingress-level checks: the /data/v3 rewrite and the HTTP-to-HTTPS redirect
+#, both best-effort from inside the Compose network.
 #
 # SMOKE_TEST_DEBUG=1 (set by smoke-test.sh --debug / smoke-test.ps1 -DebugCredentials) prints every
 # client key/secret pair this script reads or creates, as "[debug] <step>: key=... secret=...", to
@@ -45,7 +45,7 @@ CRED_FILE="$RUNTIME_DIR/bootstrap-credentials.json"
 EDORGS_HTTP_FILE="${EDORGS_HTTP_FILE:-/http/edorgs.http}"
 SMOKE_BASE="${INGRESS_BASE_URL}/${DMS_PATH_BASE}"
 POPULATED_SEED_EDORG_IDS="${POPULATED_SEED_EDORG_IDS:-255901,255950,6000203,19255901}"
-# A sample school under the first LEA above (spike-notes.md Q9, "Sample education organizations").
+# A sample school under the first LEA above.
 POPULATED_SAMPLE_SCHOOL_ID="${POPULATED_SAMPLE_SCHOOL_ID:-255901001}"
 
 [ -r "$INGRESS_CA_FILE" ] || die smoke-test "$INGRESS_CA_FILE not found or not readable"
@@ -374,7 +374,7 @@ if [ "$TEMPLATE" != "populated" ]; then
 else
     # The bootstrap credential is scoped to SEA 99 only and cannot see the populated sample
     # hierarchy (bootstrap/README.md), so this step provisions its own throwaway, properly scoped
-    # AssessmentVendor credential -- exactly what new-credential --shape assessment (Task 13) would
+    # AssessmentVendor credential -- exactly what new-credential --shape assessment would
     # create -- against the sample LEA, uses it once, then deletes it again.
     _assess_edorg_id=$(printf '%s' "$POPULATED_SEED_EDORG_IDS" | cut -d, -f1)
     _assess_school_id="$POPULATED_SAMPLE_SCHOOL_ID"
@@ -518,7 +518,7 @@ else
 fi
 
 # ==================================================================================================
-# Ingress checks: the /data/v3 rewrite (Task 6) and the HTTP-to-HTTPS redirect (Task 5). Both are
+# Ingress checks: the /data/v3 rewrite and the HTTP-to-HTTPS redirect. Both are
 # best-effort, from inside the Compose network the tools container shares with nginx.
 #
 # DATA_V3_REWRITE_ENABLED itself is not part of the tools service's environment (compose.init.yml),

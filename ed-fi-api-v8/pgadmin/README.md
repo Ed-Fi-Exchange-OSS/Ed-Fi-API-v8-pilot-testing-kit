@@ -100,5 +100,5 @@ works. Use one approach, not both.
 
 ## Not yet verified
 
-- [ ] A browser check that `/pgadmin/` logs in and shows the preconfigured server (Task 7)
+- [ ] A browser check that `/pgadmin/` logs in and shows the preconfigured server
 - [ ] The health-check path `/pgadmin/misc/ping` with `SCRIPT_NAME` set, on 9.18.0

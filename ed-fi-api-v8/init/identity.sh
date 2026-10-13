@@ -4,16 +4,16 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-identity (Task 3): seeds the OpenIddict signing key and the three CMS system clients that CMS
+# init-identity: seeds the OpenIddict signing key and the three CMS system clients that CMS
 # needs before it will issue tokens, then proves the result with a real client-credentials request.
 # Runs once per `up`, after CMS is healthy (compose.init.yml), and is safe to run again: every step
 # checks the database first and changes nothing that is already correct.
 #
 # Ported from the PowerShell recipe in dms-compose/setup-openiddict.ps1 and OpenIddict-Crypto.psm1,
-# proven against a real stack in tasks/spike-notes.md Q2. This script uses only sh, openssl, and
+# proven against a real stack. This script uses only sh, openssl, and
 # psql (the tools image's /bin/sh is dash), because .NET is not available at container run time.
 #
-# Decision 9 in tasks/plan.md: .env is the source of truth for the three client secrets. On every
+# Decision: .env is the source of truth for the three client secrets. On every
 # run this script re-derives each stored hash from the current .env value and updates it if it no
 # longer matches, so a secret rotated in .env takes effect on the next `up` with no manual step.
 
@@ -119,7 +119,7 @@ unset _role_len
 # Table existence and row existence must stay two separate queries. A single query that combines
 # to_regclass(...) IS NOT NULL with EXISTS (SELECT ... FROM dmscs."OpenIddictKey") fails to *plan*,
 # not just to match, when the table is absent -- the planner resolves every FROM-clause relation
-# before evaluating AND short-circuiting, so it errors instead of returning false (spike-notes Q2).
+# before evaluating AND short-circuiting, so it errors instead of returning false.
 # ------------------------------------------------------------------------------------------------
 
 wait_for_cms_tables() {
@@ -209,7 +209,7 @@ SQL
     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -quiet -out "$_key_priv_pem" \
         || die "$STEP_KEY" "openssl genpkey failed"
     # Plain `genpkey -outform DER` would still be PKCS#1; the -topk8 step below is what makes it
-    # PKCS#8, which is the only format CMS's key loader accepts (spike-notes Q2: PKCS#1 makes every
+    # PKCS#8, which is the only format CMS's key loader accepts (PKCS#1 makes every
     # token request fail with a 500, "ASN1 corrupted data ... 'Universal' class value '2' ... '16'").
     openssl pkcs8 -topk8 -nocrypt -in "$_key_priv_pem" -outform DER -out "$_key_priv_der" \
         || die "$STEP_KEY" "openssl pkcs8 (PKCS#1 -> PKCS#8) conversion failed"
@@ -318,8 +318,7 @@ SQL
     # One transaction per client. The initial INSERT is skipped (ON CONFLICT ... DO NOTHING) when
     # the client already exists; the UPDATEs after it then apply to every client on every run, which
     # is what makes an already-existing client converge to the same roles/scope/permissions/mapper a
-    # brand-new one gets, without a second code path for "existing" versus "new" (spike-notes Q2,
-    # plan.md decision 9).
+    # brand-new one gets, without a second code path for "existing" versus "new".
     kit_psql -v cid="$_ec_client_id" -v name="$_ec_display_name" -v hash="$_ec_hash" -v scope="$_ec_scope" \
         -f - <<'SQL'
 BEGIN;
@@ -380,7 +379,7 @@ ensure_client PilotKitAdmin "Pilot Kit Admin" \
 
 # ------------------------------------------------------------------------------------------------
 # Step g: grant PilotKitAdmin -- and only PilotKitAdmin -- the role that DMS's claim-set reload
-# endpoint requires (Task 18, FR-CLAIM-14). A participant integration credential (a CMS /v3/
+# endpoint requires (FR-CLAIM-14). A participant integration credential (a CMS /v3/
 # applications vendor client) only ever gets IdentitySettings__ClientRole (dms-client), never this
 # role, so it cannot call the endpoint. Idempotent, same ON CONFLICT pattern as the dms-client/
 # cms-client grant inside ensure_client above.

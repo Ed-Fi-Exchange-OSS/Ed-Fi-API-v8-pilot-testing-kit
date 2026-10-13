@@ -3,8 +3,8 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# Ed-Fi API v8 pilot kit: the baseline education organization hierarchy (Task 14, FR-EDORG-1, 3, 6,
-# 9, 10, 16). `init/bootstrap.sh` (Task 10) already creates these five records automatically on
+# Ed-Fi API v8 pilot kit: the baseline education organization hierarchy (FR-EDORG-1, 3, 6,
+# 9, 10, 16). `init/bootstrap.sh` already creates these five records automatically on
 # startup (FR-EDORG-12) -- you do not need to run this file for a normal start. It exists for two
 # other reasons: to show exactly what the kit created on your behalf, and to add or repair
 # organizations by hand. bootstrap/baseline-edorgs.json is the single source of truth for the
@@ -216,5 +216,5 @@ Authorization: Bearer {{token.response.body.access_token}}
 # }
 
 # FR-EDORG-15 (comparative ODS/API route): not covered -- the odsapi Compose profile does not exist
-# in this kit yet (see tasks/todo.md); add an equivalent sequence against ODS Admin API here once it
+# in this kit yet; add an equivalent sequence against ODS Admin API here once it
 # does.

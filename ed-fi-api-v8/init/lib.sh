@@ -4,7 +4,7 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# Shared POSIX sh helpers for the one-shot init containers (Task 3's identity.sh, and Tasks 4/8-13).
+# Shared POSIX sh helpers for the one-shot init containers (identity.sh, datastore.sh, and so on).
 # The tools image's /bin/sh is dash, so this file (and every script that sources it) stays inside
 # POSIX sh: no arrays, no [[ ]], no here-strings, no ${var,,}. Source it, don't execute it:
 #   . "$(dirname -- "$0")/lib.sh"
@@ -50,7 +50,7 @@ require_env() {
 # Requests a client-credentials token from CMS at CONFIG_BASE_URL/connect/token. Dies, naming
 # <step>, on a request that can't be sent, a non-200 response, or a 200 with no access_token. The
 # secret is a curl argument, so it's briefly visible in the container's process list; acceptable for
-# a local kit (spike-notes Q2).
+# a local kit.
 cms_token() {
     _ct_step="$1"
     _ct_client_id="$2"
@@ -100,8 +100,8 @@ kit_psql() {
 }
 
 # dms_token <step> <dms_base_url> <key> <secret> -> the access_token on stdout.
-# Requests a client-credentials token directly from DMS (DMS proxies to CMS's /connect/token --
-# spike-notes Q7), using HTTP Basic auth with an application's key and secret -- how BulkLoadClient
+# Requests a client-credentials token directly from DMS (DMS proxies to CMS's /connect/token),
+# using HTTP Basic auth with an application's key and secret -- how BulkLoadClient
 # and every provisioned participant credential authenticate, unlike cms_token above (which POSTs
 # client_id/client_secret to CMS directly, for the kit's own CMS system clients). Dies, naming
 # <step>, on a request that can't be sent, a non-200 response, or a 200 with no access_token.
@@ -133,7 +133,7 @@ dms_token() {
 # dms_token_try <dms_base_url> <key> <secret> -> the access_token on stdout and exit 0, on a 200
 # response with an access_token; exit 1 with nothing on stdout otherwise (including a request that
 # can't be sent). Unlike dms_token, this never dies: a caller uses it to test whether a saved
-# credential still authenticates, where "no" is an expected outcome to branch on (Task 10's
+# credential still authenticates, where "no" is an expected outcome to branch on (the
 # bootstrap-credentials.json verification), not a step failure.
 dms_token_try() {
     _dtt_base_url="$1"
@@ -247,7 +247,7 @@ cms_namespace_prefixes_cover() {
 
 # cms_ensure_vendor <step> <token> <company> <contact_name> <contact_email> <namespace_prefixes>
 # Finds a vendor by company name (CMS has no upsert), or creates one and parses its id from the
-# Location header (POST /v3/vendors returns 201 with an empty body; spike-notes Q7). A found vendor
+# Location header (POST /v3/vendors returns 201 with an empty body). A found vendor
 # whose namespacePrefixes don't cover <namespace_prefixes> is deleted and recreated; a failed delete
 # dies, because a too-narrow scope would 403 the whole load. DELETE /v3/vendors is unverified against
 # real CMS. Prints the vendor id on stdout.
@@ -329,10 +329,10 @@ cms_find_datastore_id() {
 
 # cms_create_application <step> <token> <body-json>
 # POSTs a full application body (vendorId, applicationName, claimSetName,
-# educationOrganizationIds, dataStoreIds, and so on -- this stays agnostic of the shape so Tasks 10
-# and 13 can reuse it for other claim sets). On success, sets CMS_APPLICATION_ID, CMS_APPLICATION_KEY
-# and CMS_APPLICATION_SECRET from the 201 response body -- the only place the secret is ever returned
-# (spike-notes Q7). Dies naming <step> on any other status, or on a 201 missing any of the three.
+# educationOrganizationIds, dataStoreIds, and so on -- this stays agnostic of the shape so other callers
+# can reuse it). On success, sets CMS_APPLICATION_ID, CMS_APPLICATION_KEY
+# and CMS_APPLICATION_SECRET from the 201 response body -- the only place the secret is ever returned.
+# Dies naming <step> on any other status, or on a 201 missing any of the three.
 cms_create_application() {
     _cca_step="$1"
     _cca_token="$2"
@@ -369,8 +369,8 @@ cms_find_application_ids_by_name() {
 }
 
 # cms_delete_application <step> <token> <id> -> the HTTP status code on stdout.
-# DELETE /v3/applications/{id} is not proven against real CMS as of Task 8 (the spike didn't cover
-# it). This only sends the request and reports the status -- it never dies, so callers can choose to
+# DELETE /v3/applications/{id} is not proven against real CMS (not yet exercised).
+# This only sends the request and reports the status -- it never dies, so callers can choose to
 # warn (a credential that should have been deleted, but wasn't, isn't a load failure) or fail,
 # depending on context.
 cms_delete_application() {

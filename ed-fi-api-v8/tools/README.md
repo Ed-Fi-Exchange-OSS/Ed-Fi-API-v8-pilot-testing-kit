@@ -140,7 +140,7 @@ The feed also carries BulkLoadClient `7.3.20185` (newer). It is not used, becaus
 
 ## Verification status
 
-The Phase 0 spike (see `tasks/spike-notes.md`, Q1 and Q5) built this image on an amd64 Docker Desktop
+This image was built on an amd64 Docker Desktop
 host. Both tools ran on `dotnet/runtime:10.0.12-noble`, the relocated `api-schema-tools` shim found
 the runtime, `ddl provision` produced a schema that DMS `8.0.1-alpha.0.164` accepts, and
 BulkLoadClient loaded all DS 5.2 descriptors and the sample data directly against DMS. The
@@ -150,7 +150,7 @@ on the `ARG`-based `FROM` lines, a false positive because the images are digest-
 Still unproven:
 
 - [ ] The image builds and runs on arm64 hosts
-- [ ] The log4net and `/app/ApiSchema` ownership fixes (made after the spike) behave as described
+- [ ] The log4net and `/app/ApiSchema` ownership fixes behave as described
 - [ ] `ddl provision` works as a non-superuser if the kit ever stops using `postgres`
       (`edfi_dms_enqueue_owner` role creation)
 - [ ] UID 1654 can write to any bind-mounted output directory on Linux hosts (for example

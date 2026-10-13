@@ -4,7 +4,7 @@ These static files serve the Ed-Fi API v8 (DMS) OpenAPI documentation at `https:
 They are adapted from the DMS repository's `eng/docker-compose/custom-swagger-ui` (copied into this
 repo's git-ignored `dms-compose/` for reference).
 
-**This is an interim choice** (plan Decision 7). A published Ed-Fi Swagger UI image is still being
+**This is an interim choice**. A published Ed-Fi Swagger UI image is still being
 researched and may replace this directory later.
 
 ## What changed from the DMS original
@@ -56,7 +56,7 @@ Notes:
   `'$DMS_BASE_PATH $DMS_SWAGGER_UI_ENABLE_CUSTOM_DOMAINS'`.
 - The script is a YAML literal block (`|`) passed to `sh -c`. Don't turn it into a folded block
   (`>`): continuation lines indented more than the first keep their newlines, so `sh` ran `envsubst`
-  with no input and then truncated `index.html` to 0 bytes (found in the Phase 0 spike).
+  with no input and then truncated `index.html` to 0 bytes.
 - Using `sh -c` bypasses the official image's `/docker-entrypoint.sh` template processing, which is
   intentional here. The stock `default.conf` serves `/usr/share/nginx/html` on port 80.
 - `wget` in the health check is BusyBox `wget` in the alpine image. For a Debian-based NGINX image,

@@ -4,18 +4,18 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-claimsets (Task 11): imports every claim set file in bootstrap/claimsets/ (today, just
+# init-claimsets: imports every claim set file in bootstrap/claimsets/ (today, just
 # DataWarehouse.json -- see bootstrap/claimsets/README.md) into CMS with POST /v3/claimSets/import.
 # Runs after init-identity (for the PilotKitAdmin token) and before DMS starts (compose.core.yml adds
 # it to dms.depends_on): a claim set imported while DMS is already running returns HTTP 500 "No
 # security metadata has been configured for this resource" until DMS's claim-set cache refreshes, up
-# to ClaimSetsCacheExpirationSeconds (600s, spike-notes Q6/Q9). Importing before DMS's first request
+# to ClaimSetsCacheExpirationSeconds (600s). Importing before DMS's first request
 # avoids that window entirely.
 #
 # Idempotent by name: GET /v3/claimSets first. Absent -> import. Present and identical (compared in
-# normalized form -- see canonicalize() below) -> skip. Present and different -> re-import (the
-# spike proved /v3/claimSets/import is an upsert by id in this build), then call DMS's claim-set
-# reload endpoint (Task 18, below) so a *running* DMS picks up the change immediately. Present and
+# normalized form -- see canonicalize() below) -> skip.
+# Present and different -> re-import (/v3/claimSets/import is an upsert by id in this build), then
+# call DMS's claim-set reload endpoint so a *running* DMS picks up the change immediately. Present and
 # system-reserved -> fail; this script must never alter one of the 14 embedded claim sets
 # (FR-CLAIM-5..8).
 #
@@ -142,8 +142,8 @@ import_claim_set() {
 }
 
 # ------------------------------------------------------------------------------------------------
-# reload_claim_set_if_running <claim_set_name> -- Task 18 (FR-CLAIM-14). Forces DMS to drop its
-# up-to-10-minute claim-set cache (ClaimSetsCacheExpirationSeconds, spike-notes Q6/Q9) right after an
+# reload_claim_set_if_running <claim_set_name> (FR-CLAIM-14). Forces DMS to drop its
+# up-to-10-minute claim-set cache (ClaimSetsCacheExpirationSeconds) right after an
 # import, so the caller's claim set is usable at once. Uses the PilotKitAdmin token already obtained
 # above ($TOKEN): DMS validates it the same way it validates a data-request bearer token (both trust
 # CMS's issuer/audience/signing key), and PilotKitAdmin carries the role

@@ -7,11 +7,11 @@
 
 <#
 .SYNOPSIS
-    Runs the kit's non-interactive smoke test (Task 14).
+    Runs the kit's non-interactive smoke test.
 
 .DESCRIPTION
-    Host wrapper for init/smoke-test.sh, independent of Task 12's start/stop/reset/bootstrap scripts
-    and Task 13's new-credential. Runs the smoke test inside the tools container, through NGINX, so
+    Host wrapper for init/smoke-test.sh, independent of the start/stop/reset/bootstrap scripts
+    and new-credential. Runs the smoke test inside the tools container, through NGINX, so
     routing and TLS are exercised too (not just DMS directly):
         docker compose run --rm --no-deps --user 0:0 tools sh /init/smoke-test.sh
     --no-deps so a stopped stack fails with "run start first" instead of being started. The tools

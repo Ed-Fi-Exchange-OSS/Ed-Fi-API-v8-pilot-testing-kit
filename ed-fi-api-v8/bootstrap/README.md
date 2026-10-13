@@ -1,8 +1,8 @@
 # Baseline education organization hierarchy
 
 `baseline-edorgs.json` is the single source of truth for the kit's baseline education organization
-hierarchy (plan.md decision 8, FR-EDORG-14). `init/bootstrap.sh` (Task 10) reads it to create any
-missing records on startup, and `http/edorgs.http` (Task 14) must use the same identifiers, grade
+hierarchy (FR-EDORG-14). `init/bootstrap.sh` reads it to create any
+missing records on startup, and `http/edorgs.http` must use the same identifiers, grade
 levels, and school categories -- the two must never diverge.
 
 ## The hierarchy
@@ -28,8 +28,7 @@ Each school carries grade levels consistent with its level (FR-EDORG-4):
 
 These IDs are fixed and documented (FR-EDORG-7) and were chosen not to collide with the populated
 template's sample education organizations -- `255901`, `255950`, `6000203`, `19255901`, and the
-sample schools under LEA `255901` (FR-EDORG-8; the spike confirmed both hierarchies coexist,
-spike-notes.md Q9).
+sample schools under LEA `255901` (FR-EDORG-8; both hierarchies coexist).
 
 ## Descriptor values
 
@@ -88,13 +87,13 @@ agencies, but `educationOrganizationCategories` on schools. DMS rejects the wron
 (`categories is required`).
 
 Pick an ID that doesn't collide with an existing baseline or populated-template ID. Update
-`http/edorgs.http` (Task 14) to match -- its consistency check compares the two files' identifiers.
+`http/edorgs.http` to match -- its consistency check compares the two files' identifiers.
 
 ## Bootstrapping behavior
 
 `init/bootstrap.sh` creates the "Pilot Kit Bootstrap (ADMIN)" vendor and an `EdFiSandbox`
 application scoped to the SEA (id `99`, read from this file, not hard-coded), because the SEA scope
-reaches its LEA and schools too (spike-notes.md Q7). It is idempotent: re-running it recreates only
+reaches its LEA and schools too. It is idempotent: re-running it recreates only
 the records that are missing, and reuses the existing bootstrap credential when it still
 authenticates (FR-BOOT-4/5). See `init/bootstrap.sh`'s header comment for the full credential
 reuse/rotation decision, and the kit's top-level docs for how to remove this administrative

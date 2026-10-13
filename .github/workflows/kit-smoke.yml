@@ -56,7 +56,7 @@ jobs:
     name: Kit smoke test (minimal template)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # Budget: the README/spike-notes measure a clean minimal `up` in roughly a minute of load time,
+    # Budget: the README measures a clean minimal `up` in roughly a minute of load time,
     # but a CI runner also pays for every image pull and the tools image's from-scratch build
     # (dotnet/sdk-based) on every run, with no layer cache carried over between runs. 20 minutes
     # leaves generous headroom over that for a job that should normally finish in a few minutes.
@@ -162,8 +162,8 @@ jobs:
     # This is an expensive job - do not run it on every pull request
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    # Budget: the README/spike-notes measure a clean populated `up` at about 200s (around 3.3
-    # minutes) of load time on a spike host, and about 8 minutes for the whole clean stack
+    # Budget: the README measures a clean populated `up` at about 200s (around 3.3
+    # minutes) of load time on a reference host, and about 8 minutes for the whole clean stack
     # end-to-end there. A CI runner also pays for image pulls and the tools image build on every
     # run (see the minimal job's comment), so 30 minutes leaves generous headroom over the
     # measured figures instead of guessing a number.

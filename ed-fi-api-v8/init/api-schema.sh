@@ -4,15 +4,14 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-api-schema (Task 4): stages the DS 5.2 ApiSchema files DMS needs into the api-schema volume,
-# sourced from the pinned DMS image's own /app/ApiSchema rather than the NuGet package (plan.md
-# decision 10) -- no network access, and it always matches the DMS build exactly. Runs as root
-# (image: ${DMS_IMAGE}; a fresh named volume is root-owned), with the volume mounted at /stage
-# rather than /app/ApiSchema so Docker's copy-up never fires (spike-notes Q3): an empty volume first
+# init-api-schema: stages the DS 5.2 ApiSchema files DMS needs into the api-schema volume,
+# sourced from the pinned DMS image's own /app/ApiSchema rather than the NuGet package -- no network access, and it always matches the DMS
+# build exactly. Runs as root (image: ${DMS_IMAGE}; a fresh named volume is root-owned), with the volume mounted at /stage
+# rather than /app/ApiSchema so Docker's copy-up never fires: an empty volume first
 # mounted at the image's own /app/ApiSchema would be filled with the image's core+TPDM content
 # before this script ever got a chance to run.
 #
-# The DMS image's base OS and shell utilities aren't confirmed beyond jq (spike-notes Q3), so every
+# The DMS image's base OS and shell utilities aren't confirmed beyond jq, so every
 # external tool this script uses is checked with `command -v` up front, and lib.sh (also plain sh)
 # is sourced only for log/die/require_env.
 #
@@ -57,7 +56,7 @@ require_env "$STEP_ENV" API_SCHEMA_SHA256
 [ -d "$SRC" ] || die "$STEP_ENV" "API_SCHEMA_SRC ($SRC) does not exist or is not a directory"
 mkdir -p "$DEST" || die "$STEP_ENV" "cannot create/access API_SCHEMA_DEST ($DEST)"
 
-# expected_manifest -> the core-only bootstrap manifest on stdout (spike-notes Q3): version 1, one
+# expected_manifest -> the core-only bootstrap manifest on stdout: version 1, one
 # project (ed-fi), with every path under Packages/EdFi.DataStandard52.ApiSchema/. Printed key-sorted
 # and compact so it can be diffed byte-for-byte against whatever is already on disk.
 expected_manifest() {

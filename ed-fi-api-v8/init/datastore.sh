@@ -4,8 +4,8 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-datastore (Task 4): registers the kit's PostgreSQL data store with CMS. Without one, DMS
-# exits in a restart loop at startup (spike-notes Q4: "DMS cannot start without proper data store
+# init-datastore: registers the kit's PostgreSQL data store with CMS. Without one, DMS
+# exits in a restart loop at startup ("DMS cannot start without proper data store
 # configuration"). Runs after init-identity (tools image), which is where the PilotKitAdmin client
 # this script authenticates as gets created.
 #
@@ -44,7 +44,7 @@ TOKEN=$(cms_token "$STEP_TOKEN" PilotKitAdmin "$CMS_ADMIN_CLIENT_SECRET" edfi_ad
 
 # ------------------------------------------------------------------------------------------------
 # Step a: does a data store named "Pilot Kit" already exist? GET-before-POST, since CMS has no
-# upsert for this resource (spike-notes Q4).
+# upsert for this resource.
 # ------------------------------------------------------------------------------------------------
 
 datastore_exists() {
@@ -68,8 +68,8 @@ fi
 log "$STEP_CHECK" "data store '$DATASTORE_NAME' not found, registering"
 
 # ------------------------------------------------------------------------------------------------
-# Step b: register it. `provider` must be lowercase ("postgresql", not "PostgreSQL" -- spike-notes
-# Q4). The pool size feeds Npgsql's "Maximum Pool Size", not the CMS pool sizing.
+# Step b: register it. `provider` must be lowercase ("postgresql", not "PostgreSQL").
+# The pool size feeds Npgsql's "Maximum Pool Size", not the CMS pool sizing.
 # ------------------------------------------------------------------------------------------------
 
 CONNECTION_STRING="host=db;port=5432;username=postgres;password=${POSTGRES_PASSWORD};"

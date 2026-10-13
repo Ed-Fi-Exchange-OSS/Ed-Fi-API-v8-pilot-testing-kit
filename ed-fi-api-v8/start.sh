@@ -10,8 +10,7 @@
 
 set -euo pipefail
 
-# Git Bash on Windows otherwise rewrites container paths such as /init/... into Windows paths
-# (spike-notes Q1). scripts/lib.sh also sets this, so this line matters only if that ever changes.
+# Git Bash on Windows otherwise rewrites container paths such as /init/... into Windows paths. scripts/lib.sh also sets this, so this line matters only if that ever changes.
 export MSYS_NO_PATHCONV=1
 
 # shellcheck disable=SC1007  # CDPATH= intentionally empty: stops `cd` resolving against CDPATH

@@ -7,7 +7,7 @@
 
 <#
 .SYNOPSIS
-    DESTRUCTIVE: resets the Ed-Fi API v8 pilot kit to a clean state (Task 12).
+    DESTRUCTIVE: resets the Ed-Fi API v8 pilot kit to a clean state.
 
 .DESCRIPTION
     The kit's explicit, clearly labelled destructive reset (FR-LIFE-6). Removes every persisted

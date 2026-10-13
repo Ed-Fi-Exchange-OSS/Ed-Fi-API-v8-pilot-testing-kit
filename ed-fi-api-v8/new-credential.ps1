@@ -7,11 +7,11 @@
 
 <#
 .SYNOPSIS
-    Provisions a participant integration credential (Task 13).
+    Provisions a participant integration credential.
 
 .DESCRIPTION
-    Host wrapper for init/new-credential.sh, independent of Task 12's start/stop/reset/bootstrap
-    scripts. Validates arguments locally for fast feedback, then hands them, unmodified, to
+    Host wrapper for init/new-credential.sh, independent of the
+    start/stop/reset/bootstrap scripts. Validates arguments locally for fast feedback, then hands them, unmodified, to
     init/new-credential.sh inside the tools container:
         docker compose run --rm --no-deps --user 0:0 tools sh /init/new-credential.sh ...
     --no-deps so a stopped stack fails with "run start first" instead of being started; --user 0:0 so
