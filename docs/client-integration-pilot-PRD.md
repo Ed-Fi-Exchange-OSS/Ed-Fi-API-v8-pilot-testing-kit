@@ -3,16 +3,15 @@
 > - **Status:** Draft for review
 > - **Product area:** Distributable local testing environment for the client
 >   integration pilot of Ed-Fi API v8
-> - **Repository:** `Ed-Fi-Exchange-OSS/DMS-pilot-testing-kit`
+> - **Repository:** `Ed-Fi-Exchange-OSS/Ed-Fi-API-v8-pilot-testing-kit`
 
 ## 1. Product Overview
 
 The Client Integration Pilot Testing Kit is a distributable Docker Compose
 package that lets a client integrator stand up a complete, preconfigured Ed-Fi
-API v8 environment — the Data Management Service (DMS) and the Ed-Fi
-Configuration Management Service (CMS) — in a non-production environment,
-obtain API credentials, exercise the API with their own client, and produce a
-metrics report about that run.
+API v8 (Ed-Fi API) environment and the Ed-Fi API Configuration Service (CS) —
+in a non-production environment, obtain API credentials, exercise the API with
+their own client, and produce a metrics report about that run.
 
 A *client integration* is any system that reads from or writes to an Ed-Fi API.
 The pilot targets three representative shapes, and the kit must serve all three:
@@ -78,7 +77,7 @@ integration shapes they are building.
 ### 1.2 Target Users and Personas
 
 - **Client integration engineer (primary).** Comfortable with Docker and HTTP
-  APIs; likely unfamiliar with Ed-Fi platform internals, claim sets, and CMS
+  APIs; likely unfamiliar with Ed-Fi platform internals, claim sets, and CS
   concepts. Wants to point an existing export or extract process at a working
   endpoint with minimal Ed-Fi-specific learning. Succeeds when data is moving
   in the expected direction, failures are explicable, and a run produces a
@@ -107,8 +106,8 @@ integration shapes they are building.
   working Ed-Fi API v8 environment, so that I can begin integration work the
   same day rather than scheduling an infrastructure task.
 - When my client needs API credentials, I want a script that registers a vendor
-  and application in CMS and prints the resulting key and secret, so that I do
-  not have to learn the CMS API before I can authenticate.
+  and application in CS and prints the resulting key and secret, so that I do
+  not have to learn the CS API before I can authenticate.
 - When I submit data, I want each rejected record to produce a diagnosable
   error, so that I can tell whether the fault is in my payload, my mapping, or
   the platform.
@@ -158,36 +157,36 @@ published interfaces a participant's client would use.
 graph TD
   client["Client integration or HTTP test client"] --> nginx["NGINX HTTPS reverse proxy"]
   scripts["Host setup and reporting scripts"] --> nginx
-  nginx --> dms["Ed-Fi API v8 (DMS)"]
-  nginx --> cms["Ed-Fi CMS (Configuration Management Service)"]
+  nginx --> api["Ed-Fi API v8"]
+  nginx --> CS["Ed-Fi CS (API Configuration Service)"]
   nginx --> pgadmin["PGAdmin"]
   nginx --> ods["ODS/API 7.3.2 (optional Compose profile)"]
   nginx --> adminapi["ODS Admin API 2.3.2 (optional Compose profile)"]
   nginx --> swaggerUI["Ed-Fi Swagger UI"]
-  dms --> dmsdb[("PostgreSQL - DMS and CMS databases")]
-  cms --> dmsdb
+  api --> dmsdb[("PostgreSQL - Ed-Fi API and CS databases")]
+  CS --> dmsdb
   ods --> odsdb[("PostgreSQL - ODS/API databases")]
   adminapi --> odsdb
-  dms --> logs["Mounted log directory"]
+  api --> logs["Mounted log directory"]
   ods --> logs
   scripts --> logs
 ```
 
 ### Topology summary
 
-- **Default stack:** NGINX, Ed-Fi API v8 (DMS), Ed-Fi CMS, Ed-Fi Swagger UI,
+- **Default stack:** NGINX, Ed-Fi API v8 (Ed-Fi API), Ed-Fi CS, Ed-Fi Swagger UI,
   PostgreSQL.
-  - DMS/CMS version: a recent snapshot from the `main` branch, post 8.0 release,
+  - Ed-Fi API/CS version: a recent snapshot from the `main` branch, post 8.0 release,
     published as a pinnable pre-release.
 - **Optional `odsapi` Compose profile:** Ed-Fi ODS/API 7.3.2 and ODS Admin API
   2.3.2  with their own PostgreSQL service, behind the same NGINX instance on
   distinct routes.
 - **Authentication:** the built-in OAuth2 token endpoints of Ed-Fi API v8 and
   ODS/API 7.3.2. No external identity provider participates.
-- **Configuration management:** Ed-Fi CMS owns vendor, application, and
+- **Configuration management:** Ed-Fi CS owns vendor, application, and
   credential records for the v8 stack; Ed-Fi ODS Admin API provides the same
   services for the v7 stack.
-- **Data initialization:** both the DMS and ODS/API datastores are initialized
+- **Data initialization:** both the Ed-Fi API and ODS/API datastores are initialized
   from one of two templates, chosen before first startup. The "minimal
   template" (descriptors only, no sample data) is the default and suits
   write-oriented SIS integrations. The "populated template" adds the Ed-Fi
@@ -234,8 +233,7 @@ release; `SHOULD` is intended but negotiable; `MAY` is optional.
 
 ### 3.2 Platform Composition and Data Standard
 
-- **FR-PLAT-1:** The default stack SHALL provide Ed-Fi API v8 (DMS) and Ed-Fi
-  CMS.
+- **FR-PLAT-1:** The default stack SHALL provide Ed-Fi API and Ed-Fi CS.
 - **FR-PLAT-2:** The stack SHALL be configured for Ed-Fi Data Standard 5.2.
 - **FR-PLAT-3:** The database SHALL be initialized with the minimal template
   equivalent by default — required descriptors and platform structures only,
@@ -316,7 +314,7 @@ adding *more* organizations afterwards; it is no longer the only way to get the
 first one.
 
 - **FR-BOOT-1:** Startup SHALL create a bootstrap client credential through
-  CMS, using the "Ed-Fi Sandbox" claim set per FR-CLAIM-1, without participant
+  CS, using the "Ed-Fi Sandbox" claim set per FR-CLAIM-1, without participant
   intervention (`EdFiSandbox` in v8, `Ed-Fi Sandbox` in v7).
 - **FR-BOOT-2:** Startup SHALL use the bootstrap credential to create the
   baseline education organization hierarchy defined in section 3.13.
@@ -347,7 +345,7 @@ first one.
   without a destructive reset.
 - **FR-BOOT-11:** Bootstrapping SHALL apply equivalently to the comparative
   ODS/API stack when that profile is enabled, using ODS Admin API in place of
-  CMS.
+  CS.
 - **FR-BOOT-12:** Records created by bootstrapping SHALL be excluded from, or
   distinguishable in, the metrics report, so that kit-created organizations are
   never counted as participant-submitted data.
@@ -414,9 +412,9 @@ has no standard claim set at all.
 
 ### 3.7 Credential Provisioning
 
-- **FR-CRED-1:** The kit SHALL provide scripts that register a CMS client and
+- **FR-CRED-1:** The kit SHALL provide scripts that register a CS client and
   generate client integration API credentials without the participant calling
-  the CMS API directly.
+  the CS API directly.
 - **FR-CRED-2:** Credential provisioning SHALL print the generated key and
   secret and SHALL state that they are non-recoverable if the script does not
   persist them.
@@ -430,7 +428,7 @@ has no standard claim set at all.
 - **FR-CRED-5:** The kit SHALL document how to obtain an access token from the
   built-in OAuth2 token endpoint using the generated credential.
 - **FR-CRED-6:** Provisioning scripts SHALL fail with an actionable message when
-  CMS is not yet reachable or not yet initialized.
+  CS is not yet reachable or not yet initialized.
 - **FR-CRED-7:** Provisioning SHALL support read-oriented integrations as well
   as write-oriented ones, issuing the Data Warehouse claim set for a downstream
   extraction client per FR-CLAIM-5.
@@ -815,16 +813,16 @@ created on their behalf rather than inheriting an opaque seeded state.
 | Lifecycle scripts (PowerShell + Bash) | Start, stop, reset, wait for health, print URLs and next steps | Host machine | `.env`, Docker CLI, Compose profiles |
 | Compose project | Define services, profiles, health checks, volumes, network | Docker Compose | YAML plus environment substitution |
 | NGINX | HTTPS termination, path routing, `/data/v3` rewrite, optional rate limiting | Container, host HTTPS port | Config template, generated certificate files |
-| Ed-Fi API v8 (DMS) | System under test: Discovery, Resources, Descriptors, metadata, change queries, Profiles, ETags, paging, built-in OAuth2 | Container | Platform settings, claim set configuration, DS 5.2 artifacts |
-| Ed-Fi CMS | Vendor, application, and credential management for the v8 stack | Container | CMS database schema and configuration |
-| PostgreSQL (v8) | Persistence for DMS and CMS | Container | Credentials, named volume, minimal or populated template initialization |
+| Ed-Fi API v8 | System under test: Discovery, Resources, Descriptors, metadata, change queries, Profiles, ETags, paging, built-in OAuth2 | Container | Platform settings, claim set configuration, DS 5.2 artifacts |
+| Ed-Fi CS | Vendor, application, and credential management for the v8 stack | Container | CS database schema and configuration |
+| PostgreSQL (v8) | Persistence for Ed-Fi API and CS | Container | Credentials, named volume, minimal or populated template initialization |
 | ODS/API 7.3.2 | Optional comparative system under test, with built-in OAuth2 | Container, `odsapi` profile | Image tag, route, credentials |
 | Ed-Fi ODS Admin API | Vendor, application, and credential management for the v7 stack | Container | EdFi_Admin and EdFi_Security databases |
 | Ed-Fi Swagger UI | Web app for API documentation and testing | Container, both profiles | none |
 | PostgreSQL (ODS/API) | Persistence for the comparative stack | Container, `odsapi` profile | Minimal or populated template initialization, separate volume |
 | PGAdmin | Database inspection for troubleshooting | Container | Preconfigured server definitions, named volume |
 | Bootstrapping | Create the Ed-Fi Sandbox bootstrap credential, provision the Data Warehouse claim set, and create the baseline education organization hierarchy during startup | Host machine, invoked by lifecycle scripts | Bootstrap credential output location, baseline hierarchy definition, Data Warehouse claim set definition |
-| Credential provisioning scripts | Register clients and mint scoped client integration API credentials for both platforms | Host machine | CMS API and ODS Admin API configuration surface |
+| Credential provisioning scripts | Register clients and mint scoped client integration API credentials for both platforms | Host machine | CS API and ODS Admin API configuration surface |
 | Template provisioning | Initialize the selected minimal or populated starting data set on first run | Container entrypoint or init script | Template source artifacts, template selection setting |
 | Log mount | Durable location for API and proxy logs | Host filesystem | Configurable host path |
 | Reporting scripts | Parse logs into error counts, landed counts, duration, and environment metadata | Host machine | Log mount, report output path |
@@ -837,7 +835,7 @@ created on their behalf rather than inheriting an opaque seeded state.
 
 - Microsoft SQL Server. PostgreSQL is the only supported engine, and no SQL
   Server variant is planned for this kit.
-- Ed-Fi Admin App. Configuration is handled by Ed-Fi CMS or Ed-Fi ODS Admin API;
+- Ed-Fi Admin App. Configuration is handled by Ed-Fi CS or Ed-Fi ODS Admin API;
   no administrative UI is provided.
 - Keycloak or any external identity provider. Both platforms' built-in OAuth2
   servers are sufficient for the pilot.
@@ -887,7 +885,7 @@ created on their behalf rather than inheriting an opaque seeded state.
   real measurement gap.
 - **A populated starting point may not exist for Ed-Fi API v8 in the same form
   it does for ODS/API.** The ODS/API has published populated template backups;
-  the DMS may require the sample data to be loaded through the API or a bulk
+  the Ed-Fi API may require the sample data to be loaded through the API or a bulk
   loader instead, which would make populated-template startup materially slower
   and would make the two platforms' populated states harder to keep equivalent.
   FR-TMPL-1 and FR-TMPL-3 assume this is solvable; the first open question
@@ -975,7 +973,7 @@ created on their behalf rather than inheriting an opaque seeded state.
 - **Participant:** An organization taking part in the pilot. This may be a
   software vendor, or it may be a district, state, or service-agency data team
   in the downstream warehouse case. "Vendor" is used narrowly for commercial
-  product organizations and for the CMS record type of the same name.
+  product organizations and for the CS record type of the same name.
 - **Assessment provider integration:** A client integration that writes
   assessment metadata and student assessment results, and that must resolve
   references to student and education organization records it did not create.
@@ -983,11 +981,8 @@ created on their behalf rather than inheriting an opaque seeded state.
   extracts data out of the API — by full paged reads, by change queries, or
   both — for loading into a warehouse or reporting platform.
 - **Ed-Fi API v8:** The current generation of the Ed-Fi API specification and
-  platform, implemented by the Data Management Service. Referred to in this
-  repository as "DMS".
-- **DMS (Data Management Service):** The service implementing Ed-Fi API v8 and
-  the primary system under test in this pilot.
-- **CMS (Configuration Management Service):** The Ed-Fi Management API service
+  platform. 
+- **CS (API Configuration Service):** The Ed-Fi Management API compatible service
   that manages vendors, applications, and API credentials for the Ed-Fi API v8
   platform.
 - **ODS/API:** The legacy Ed-Fi platform generation, paired with an Operational
@@ -1041,7 +1036,7 @@ created on their behalf rather than inheriting an opaque seeded state.
   read or write for a resource.
 - **ETag:** An HTTP entity tag used for optimistic concurrency and conditional
   requests.
-- **Vendor / application:** CMS records representing an integrating
+- **Vendor / application:** CS records representing an integrating
   organization and one of its integrating systems; credentials are issued
   against an application.
 - **Compose profile:** The Docker Compose mechanism used here to make the

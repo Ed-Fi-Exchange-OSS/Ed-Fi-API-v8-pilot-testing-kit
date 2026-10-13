@@ -2,11 +2,11 @@
 
 A self-contained [Docker Compose](https://docs.docker.com/compose/) environment for testing a
 client integration -- a system that reads from or writes to an Ed-Fi API -- against
-[Ed-Fi API v8](https://docs.ed-fi.org/reference/ed-fi-api/8/), also called the **DMS** (Data
-Management Service). It brings up DMS, the **CMS** (Configuration Management Service, which manages
-API credentials), PostgreSQL, an HTTPS ingress, Swagger UI, and PGAdmin, pre-loaded with one of two
-starting data sets and a baseline set of education organizations, so you can get a credentialed,
-authenticated API call working without first learning Ed-Fi platform operations.
+[Ed-Fi API v8](https://docs.ed-fi.org/reference/ed-fi-api/8/). It brings up the Ed-Fi API, the
+Ed-Fi API Configuration Service (CS; manages API credentials), PostgreSQL, an HTTPS ingress,
+Swagger UI, and PGAdmin, pre-loaded with one of two starting data sets and a baseline set of
+education organizations, so you can get a credentialed, authenticated API call working without
+first learning Ed-Fi API Platform operations.
 
 This document assumes no prior Ed-Fi platform operations experience. Ed-Fi-specific terms are
 defined the first time they're used; the full set of definitions is in the
@@ -39,6 +39,11 @@ defined the first time they're used; the full set of definitions is in the
   - [Known limitations](#known-limitations)
   - [Feedback](#feedback)
 
+> [!TIP]
+> This source code uses "DMS" as an acronym in many places. It stands for "Data Management Service",
+> which is internal name. This acronym may be replaced in future updates to this repository, as we
+> want to emphasize the proper application name going forward: Ed-Fi API.
+
 ## Prerequisites
 
 - **Docker and Compose.** Docker Desktop (Windows or macOS) or Docker Engine (Linux), with
@@ -61,7 +66,7 @@ defined the first time they're used; the full set of definitions is in the
   - `443` (`HTTPS_PORT`) -- the kit's HTTPS ingress
   - `5435` (`POSTGRES_PORT`) -- PostgreSQL, bound to `127.0.0.1` only, for host database tools
 - **Disk space.** A few GB for the pulled and locally built images (NGINX, PostgreSQL, PGAdmin,
-  CMS, DMS, and a `tools` image built from a .NET SDK base image on first start), plus the database
+  CS, Ed-Fi API, and a `tools` image built from a .NET SDK base image on first start), plus the database
   volume itself: roughly 130 MB total for the **minimal** template, or roughly 700 MB total for the
   **populated** template (measured during kit verification; see
   [The populated template](#the-populated-template) for the full breakdown).
@@ -111,8 +116,8 @@ PowerShell 7 commands behave identically.
 ### 1. Clone and change into the kit directory
 
 ```bash
-git clone https://github.com/Ed-Fi-Exchange-OSS/DMS-pilot-testing-kit.git
-cd DMS-pilot-testing-kit/ed-fi-api-v8
+git clone https://github.com/Ed-Fi-Exchange-OSS/Ed-Fi-API-v8-pilot-testing-kit
+cd Ed-Fi-API-v8-pilot-testing-kit/ed-fi-api-v8
 ```
 
 ### 2. (Optional) Review configuration before the first start
@@ -129,8 +134,8 @@ cp .env.example .env
 If you copy it yourself, the secret values stay at `.env.example`'s published placeholders (for
 example `POSTGRES_PASSWORD=LocalDevOnly-Postgres-1!`) until you change them, because an existing
 `.env` is never modified automatically. Letting `start` create `.env` for you avoids that: it
-replaces `POSTGRES_PASSWORD`, `CMS_SERVICE_CLIENT_SECRET`, `CMS_READONLY_CLIENT_SECRET`,
-`CMS_ADMIN_CLIENT_SECRET`, `CMS_DATABASE_ENCRYPTION_KEY`, `CMS_IDENTITY_ENCRYPTION_KEY`, and
+replaces `POSTGRES_PASSWORD`, `CS_SERVICE_CLIENT_SECRET`, `CS_READONLY_CLIENT_SECRET`,
+`CS_ADMIN_CLIENT_SECRET`, `CS_DATABASE_ENCRYPTION_KEY`, `CS_IDENTITY_ENCRYPTION_KEY`, and
 `PGADMIN_DEFAULT_PASSWORD` with values generated only for your own environment.
 
 ### 3. Start the kit
@@ -161,7 +166,7 @@ Ed-Fi API v8 pilot kit is up.
 
   API / Discovery:  https://localhost/api
   Token endpoint:   https://localhost/api/oauth/token
-  CMS config:       https://localhost/config
+  CS config:       https://localhost/config
   Swagger UI:       https://localhost/swagger
   PGAdmin:          https://localhost/pgadmin
 
@@ -312,9 +317,9 @@ below, to your network.
 
 | Route | What it is | Notes |
 | --- | --- | --- |
-| `https://localhost/api` | DMS (Ed-Fi API v8) Discovery | path from `DMS_PATH_BASE` (default `api`) |
+| `https://localhost/api` | Ed-Fi API v8 Discovery | path from `DMS_PATH_BASE` (default `api`) |
 | `https://localhost/api/oauth/token` | OAuth2 token endpoint | client-credentials grant only |
-| `https://localhost/config` | CMS | path from `CMS_PATH_BASE` (default `config`); manages vendors, applications, and credentials |
+| `https://localhost/config` | CS | path from `CS_PATH_BASE` (default `config`); manages vendors, applications, and credentials |
 | `https://localhost/swagger/` | Swagger UI | see [below](#things-worth-knowing-before-you-dig-in) -- needs internet access in your browser |
 | `https://localhost/pgadmin/` | PGAdmin | see [below](#things-worth-knowing-before-you-dig-in) -- prompts for the database password |
 | `https://localhost/data/v3/...` | rewritten to `/api/data/...` | toggle: `DATA_V3_REWRITE_ENABLED` (default `true`); see the caveat below |
@@ -327,9 +332,9 @@ only (it then 404s instead of rewriting). If your own client relies on it, the p
 specifically wants to know.
 
 **Default credentials.** On first run, `start` creates `.env` from `.env.example` and immediately
-replaces the published placeholder values for `POSTGRES_PASSWORD`, `CMS_SERVICE_CLIENT_SECRET`,
-`CMS_READONLY_CLIENT_SECRET`, `CMS_ADMIN_CLIENT_SECRET`, `CMS_DATABASE_ENCRYPTION_KEY`,
-`CMS_IDENTITY_ENCRYPTION_KEY`, and `PGADMIN_DEFAULT_PASSWORD` with values generated only for your
+replaces the published placeholder values for `POSTGRES_PASSWORD`, `CS_SERVICE_CLIENT_SECRET`,
+`CS_READONLY_CLIENT_SECRET`, `CS_ADMIN_CLIENT_SECRET`, `CS_DATABASE_ENCRYPTION_KEY`,
+`CS_IDENTITY_ENCRYPTION_KEY`, and `PGADMIN_DEFAULT_PASSWORD` with values generated only for your
 environment -- nothing in the repository is a value you'd actually authenticate with. Open your own
 `.env` to read one of them (for example, to log into PGAdmin below). `PGADMIN_DEFAULT_EMAIL` stays
 at its example value, `admin@example.com`, unless you change it.
@@ -406,10 +411,10 @@ integration needs, that is exactly the kind of feedback the pilot wants (see
 
 ## Applying a claim set change immediately
 
-Ed-Fi API v8 caches claim set information, so a claim set imported or changed while DMS is already
+Ed-Fi API v8 caches claim set information, so a claim set imported or changed while Ed-Fi API is already
 running isn't picked up right away -- requests can return `HTTP 500` for up to 10 minutes until the
 cache refreshes. The kit avoids this for its own `DataWarehouse` claim set by importing it before
-DMS starts, but if **you** add or change a claim set on an already-running stack, force an immediate
+Ed-Fi API starts, but if **you** add or change a claim set on an already-running stack, force an immediate
 reload:
 
 ```http
@@ -417,7 +422,7 @@ POST https://localhost/api/management/reload-claimsets
 Authorization: Bearer <token with the dms-management-operator role>
 ```
 
-Only the kit's `PilotKitAdmin` CMS client carries the required role
+Only the kit's `PilotKitAdmin` CS client carries the required role
 (`DMS_CLAIMSET_RELOAD_ROLE`, default `dms-management-operator`) -- a participant integration
 credential gets `403`, and an unauthenticated request gets `401`. Get a token for it the same way
 [`http/claimset-test.http`](http/claimset-test.http) does:
@@ -426,10 +431,10 @@ credential gets `403`, and an unauthenticated request gets `401`. Get a token fo
 POST https://localhost/config/connect/token
 Content-Type: application/x-www-form-urlencoded
 
-grant_type=client_credentials&client_id=PilotKitAdmin&client_secret=<CMS_ADMIN_CLIENT_SECRET from .env>&scope=edfi_admin_api/full_access
+grant_type=client_credentials&client_id=PilotKitAdmin&client_secret=<CS_ADMIN_CLIENT_SECRET from .env>&scope=edfi_admin_api/full_access
 ```
 
-`GET https://localhost/api/management/view-claimsets` (same bearer token) lists what DMS currently
+`GET https://localhost/api/management/view-claimsets` (same bearer token) lists what Ed-Fi API currently
 has cached, useful for confirming a reload took effect. Set `DMS_CLAIMSET_RELOAD_ENABLED=false` in
 `.env` to turn both endpoints off entirely (`404`); the rest of the stack is unaffected.
 
@@ -439,9 +444,9 @@ A few behaviors you'll likely run into, each worth one sentence:
 
 - **PGAdmin prompts for the database password on connect.** The preconfigured server definition
   deliberately stores no password; enter `POSTGRES_PASSWORD` from your `.env` when PGAdmin asks.
-- **A Profile created while DMS is already running isn't usable until DMS restarts** (or up to 30
-  minutes pass, DMS's Profile cache window) -- the kit ships no Profiles itself, but if you add one
-  through CMS, restart DMS (`docker compose restart dms`) before relying on it.
+- **A Profile created while Ed-Fi API is already running isn't usable until Ed-Fi API restarts** (or up to 30
+  minutes pass, Ed-Fi API's Profile cache window) -- the kit ships no Profiles itself, but if you add one
+  through CS, restart Ed-Fi API (`docker compose restart dms`) before relying on it.
 - **A school-scoped SIS credential can still read every school in the hierarchy**, not just the one
   it's scoped to -- `SISVendor`'s school read uses an authorization strategy that doesn't further
   restrict by education organization. This is expected Ed-Fi platform behavior, not a kit defect.
@@ -478,20 +483,20 @@ timing claims into these numbers beyond "how long will my own first start take."
   timing, the upstream service/address/status/time, and whether the `/data/v3` rewrite applied), and
   warnings/errors to `error.log` in the same directory. Both survive `docker compose down`, since
   they're on the host filesystem, not only in the container.
-- **DMS and CMS are not file-logged to that directory.** Read their logs with
-  `docker compose logs dms` / `docker compose logs cms` (or `docker logs`). Set `DMS_LOG_LEVEL` /
-  `CMS_LOG_LEVEL` in `.env` (`Debug`, `Information`, `Warning`, `Error`) to change verbosity; DMS
+- **Ed-Fi API and CS are not file-logged to that directory.** Read their logs with
+  `docker compose logs dms` / `docker compose logs CS` (or `docker logs`). Set `DMS_LOG_LEVEL` /
+  `CS_LOG_LEVEL` in `.env` (`Debug`, `Information`, `Warning`, `Error`) to change verbosity; Ed-Fi API
   defaults to `Warning` because at `Information` it writes enough per request that Docker's own log
   rotation can discard an error window within minutes during a populated-template load.
 - **A correlation ID ties a request together across services.** Send a `correlationid` request
-  header yourself, or NGINX generates one; it appears in both the NGINX access log and the DMS
+  header yourself, or NGINX generates one; it appears in both the NGINX access log and the Ed-Fi API
   log lines for that request.
 - `MASK_REQUEST_BODY_IN_LOGS=true` (the default) keeps request bodies out of `Debug`-level logs --
   leave it on unless you specifically need bodies and understand they may contain submitted data.
 
 ## Privacy
 
-This kit's data stores -- the databases DMS and CMS read from and write to -- are intended for
+This kit's data stores -- the databases Ed-Fi API and CS read from and write to -- are intended for
 **synthetic or de-identified data only**. Do not submit real student records into this environment.
 The populated template's sample data is itself entirely synthetic. Logs and anything you extract
 from the API may contain payload fragments and identifiers from whatever you did submit; review
@@ -536,8 +541,8 @@ failures, each with the exact command or message to look for.
 - **There is no scripted metrics/reporting tooling.** Log parsing and run reports (PRD section
   3.11, `FR-MET-*`) are explicitly out of scope for this build; error counts, record counts, and
   timing are things you'll need to assemble yourself from the logs described above.
-- **DMS and CMS logs aren't written to the log directory, for now.** Only NGINX writes there. Read
-  DMS and CMS logs with `docker compose logs dms` / `docker compose logs cms` (see [Logs](#logs)).
+- **Ed-Fi API and CS logs aren't written to the log directory, for now.** Only NGINX writes there. Read
+  Ed-Fi API and CS logs with `docker compose logs dms` / `docker compose logs CS` (see [Logs](#logs)).
   Docker's log rotation can discard older lines.
 - **macOS and arm64 are untested.** Every build and measurement in this kit's verification was done
   on Windows, on an amd64 host. The kit has not been run on macOS, and the locally built `tools`
@@ -548,20 +553,20 @@ failures, each with the exact command or message to look for.
 - **Swagger UI needs internet access in your browser.** If your network blocks `unpkg.com`,
   `/swagger/` won't render. The rest of the kit is unaffected.
 - **A `studentAssessment` that references an assessment in a disallowed namespace returns `500`
-  instead of `403`.** The response is `An unexpected problem has occurred.`, and the DMS log
+  instead of `403`.** The response is `An unexpected problem has occurred.`, and the Ed-Fi API log
   (`docker compose logs dms`) shows `Npgsql.PostgresException 42P08: could not determine data type
   of parameter $1` in `CompositeRelationalWriteSecondCommand.MapAuthorizationFailureAsync`. This is
-  an upstream DMS issue, not something the kit can fix. Workaround: use an allowed namespace
+  an upstream Ed-Fi API issue, not something the kit can fix. Workaround: use an allowed namespace
   prefix for the assessment (see [Namespace
-  prefixes](docs/credentials-and-claim-sets.md#namespace-prefixes)). Upstream issue: DMS-1596.
+  prefixes](docs/credentials-and-claim-sets.md#namespace-prefixes)).
 - **Swagger UI leaves `pageSize` empty.** DMS advertises a default `pageSize` of 500, but rejects
   `pageSize` without `pageToken`. So the kit's Swagger UI removes that default. To page with a
-  cursor in Swagger UI, fill in both. Upstream issue: DMS-1588.
+  cursor in Swagger UI, fill in both.
 - **A claim set change on an already-running stack can take up to 10 minutes to take effect** if you
   don't call the reload endpoint described [above](#applying-a-claim-set-change-immediately) -- the
-  kit's own `DataWarehouse` claim set avoids this by importing before DMS starts, but a claim set
-  you add yourself will need either the reload call or a DMS restart.
-- **A Profile created while DMS is running isn't usable for up to 30 minutes** without a DMS
+  kit's own `DataWarehouse` claim set avoids this by importing before Ed-Fi API starts, but a claim set
+  you add yourself will need either the reload call or a Ed-Fi API restart.
+- **A Profile created while Ed-Fi API is running isn't usable for up to 30 minutes** without a Ed-Fi API
   restart (see [above](#things-worth-knowing-before-you-dig-in)).
 - **Self-signed HTTPS is friction against a fast setup.** Certificate trust is the most likely place
   to stall; see [Trusting the certificate](#trusting-the-certificate-from-your-own-client-code) and
