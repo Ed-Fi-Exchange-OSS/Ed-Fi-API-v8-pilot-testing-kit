@@ -26,6 +26,7 @@ usage() {
     cat <<'EOF'
 Usage: ./new-credential.sh --shape sis|assessment|warehouse --name <name>
                             [--claim-set <name>] [--edorg-ids 1,2,3]
+                            [--namespace-prefix <prefix>[,<prefix>...]]
 
   --shape       Required. sis -> SISVendor, assessment -> AssessmentVendor, warehouse -> DataWarehouse.
   --name        Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
@@ -33,6 +34,11 @@ Usage: ./new-credential.sh --shape sis|assessment|warehouse --name <name>
   --edorg-ids   Optional comma-separated education organization ids. Defaults depend on --shape and
                 the loaded template: the bootstrapped SEA on minimal, the sample LEA on populated, or
                 none for warehouse credentials.
+  --namespace-prefix
+                Optional comma-separated namespace prefixes (for example uri://acme.example.org),
+                added to the defaults (uri://ed-fi.org, plus uri://gbisd.edu on the populated
+                template) so this credential can write data under its own namespace. Each must start
+                with a scheme and '://', with no spaces; up to 255 characters in total.
 EOF
 }
 
@@ -40,6 +46,7 @@ SHAPE=""
 NAME=""
 CLAIM_SET=""
 EDORG_IDS=""
+NAMESPACE_PREFIX=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -67,6 +74,12 @@ while [ $# -gt 0 ]; do
             shift 2
             ;;
         --edorg-ids=*) EDORG_IDS="${1#*=}"; shift ;;
+        --namespace-prefix)
+            [ $# -ge 2 ] || { echo "--namespace-prefix requires a value" >&2; exit 1; }
+            NAMESPACE_PREFIX="$2"
+            shift 2
+            ;;
+        --namespace-prefix=*) NAMESPACE_PREFIX="${1#*=}"; shift ;;
         --help | -h)
             usage
             exit 0
@@ -115,6 +128,32 @@ if [ -n "$EDORG_IDS" ]; then
     esac
 fi
 
+if [ -n "$NAMESPACE_PREFIX" ]; then
+    # Same rules as init/new-credential.sh: comma-separated, each entry a scheme + '://' + more, no
+    # whitespace, at most 255 characters in total.
+    if [[ "$NAMESPACE_PREFIX" =~ [[:space:]] ]]; then
+        echo "--namespace-prefix must not contain whitespace (got '$NAMESPACE_PREFIX')" >&2
+        exit 1
+    fi
+    if [ "${#NAMESPACE_PREFIX}" -gt 255 ]; then
+        echo "--namespace-prefix must be at most 255 characters (got ${#NAMESPACE_PREFIX})" >&2
+        exit 1
+    fi
+    case "$NAMESPACE_PREFIX" in
+        ,* | *, | *,,*)
+            echo "--namespace-prefix must be a comma-separated list of non-empty prefixes (got '$NAMESPACE_PREFIX')" >&2
+            exit 1
+            ;;
+    esac
+    IFS=, read -r -a _prefixes <<<"$NAMESPACE_PREFIX"
+    for _p in "${_prefixes[@]}"; do
+        if [[ ! "$_p" =~ ^[A-Za-z][A-Za-z0-9+.-]*://[A-Za-z0-9+.:/_~%@-]+$ ]]; then
+            echo "--namespace-prefix entries must start with a scheme and '://', such as uri://acme.example.org (got '$_p')" >&2
+            exit 1
+        fi
+    done
+fi
+
 if ! docker info >/dev/null 2>&1; then
     echo "Docker does not appear to be running. Start Docker Desktop and try again." >&2
     exit 1
@@ -136,6 +175,9 @@ if [ -n "$CLAIM_SET" ]; then
 fi
 if [ -n "$EDORG_IDS" ]; then
     args+=(--edorg-ids "$EDORG_IDS")
+fi
+if [ -n "$NAMESPACE_PREFIX" ]; then
+    args+=(--namespace-prefix "$NAMESPACE_PREFIX")
 fi
 
 # Pass the kit folder's host path so the container can print an absolute "Saved to:" path (`pwd -W`

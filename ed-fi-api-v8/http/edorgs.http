@@ -23,8 +23,17 @@
 # (FR-EDORG-6).
 
 @baseUrl = https://localhost/api
+# @dataApiBaseUrl is the root for resource requests (for example https://localhost/api/data), read
+# from the unauthenticated Discovery request below at $.urls.dataManagementApi. Send the "discovery"
+# request first; REST Client resolves {{discovery.response...}} from that request's last response in
+# this session, so it errors until the request has been sent once.
+@dataApiBaseUrl = {{discovery.response.body.$.urls.dataManagementApi}}
 @key = {{$dotenv DMS_BOOTSTRAP_KEY}}
 @secret = {{$dotenv DMS_BOOTSTRAP_SECRET}}
+
+### Discovery (no authentication). Send this first.
+# @name discovery
+GET {{baseUrl}}
 
 # Baseline identifiers (bootstrap/baseline-edorgs.json, FR-EDORG-7). Chosen not to collide with the
 # populated template's sample organizations -- LEA 255901, ESC 255950, post-secondary institution
@@ -49,7 +58,7 @@ grant_type=client_credentials
 # -------------------------------------------------------------------------------------------------
 
 ### 1. State Education Agency
-POST {{baseUrl}}/data/ed-fi/stateEducationAgencies
+POST {{dataApiBaseUrl}}/ed-fi/stateEducationAgencies
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 
@@ -62,7 +71,7 @@ Content-Type: application/json
 }
 
 ### 2. Local Education Agency, referencing the SEA above
-POST {{baseUrl}}/data/ed-fi/localEducationAgencies
+POST {{dataApiBaseUrl}}/ed-fi/localEducationAgencies
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 
@@ -79,7 +88,7 @@ Content-Type: application/json
 ### 3. Elementary school, referencing the LEA above.
 # DS 5.2 naming quirk (bootstrap/README.md): schools use "educationOrganizationCategories", not
 # "categories" like the SEA/LEA above -- DMS rejects the wrong name with 400 "categories is required".
-POST {{baseUrl}}/data/ed-fi/schools
+POST {{dataApiBaseUrl}}/ed-fi/schools
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 
@@ -104,7 +113,7 @@ Content-Type: application/json
 }
 
 ### 4. Middle school, referencing the LEA above
-POST {{baseUrl}}/data/ed-fi/schools
+POST {{dataApiBaseUrl}}/ed-fi/schools
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 
@@ -126,7 +135,7 @@ Content-Type: application/json
 }
 
 ### 5. High school, referencing the LEA above
-POST {{baseUrl}}/data/ed-fi/schools
+POST {{dataApiBaseUrl}}/ed-fi/schools
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 
@@ -154,11 +163,11 @@ Content-Type: application/json
 # -------------------------------------------------------------------------------------------------
 
 ### Verify: the LEA, by its SEA reference
-GET {{baseUrl}}/data/ed-fi/localEducationAgencies?stateEducationAgencyId={{seaId}}
+GET {{dataApiBaseUrl}}/ed-fi/localEducationAgencies?stateEducationAgencyId={{seaId}}
 Authorization: Bearer {{token.response.body.access_token}}
 
 ### Verify: the three schools, by their LEA reference
-GET {{baseUrl}}/data/ed-fi/schools?localEducationAgencyId={{leaId}}
+GET {{dataApiBaseUrl}}/ed-fi/schools?localEducationAgencyId={{leaId}}
 Authorization: Bearer {{token.response.body.access_token}}
 
 # -------------------------------------------------------------------------------------------------
@@ -172,7 +181,7 @@ Authorization: Bearer {{token.response.body.access_token}}
 # -------------------------------------------------------------------------------------------------
 
 # ### A second Local Education Agency under the same SEA
-# POST {{baseUrl}}/data/ed-fi/localEducationAgencies
+# POST {{dataApiBaseUrl}}/ed-fi/localEducationAgencies
 # Authorization: Bearer {{token.response.body.access_token}}
 # Content-Type: application/json
 #
@@ -187,7 +196,7 @@ Authorization: Bearer {{token.response.body.access_token}}
 # }
 
 # ### A second school under the baseline LEA
-# POST {{baseUrl}}/data/ed-fi/schools
+# POST {{dataApiBaseUrl}}/ed-fi/schools
 # Authorization: Bearer {{token.response.body.access_token}}
 # Content-Type: application/json
 #

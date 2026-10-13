@@ -122,6 +122,11 @@ ensure_bootstrap_credential() {
         BOOT_APPLICATION_ID=$(jq -r '.applicationId // empty' "$CRED_FILE")
         [ -n "$BOOT_APPLICATION_ID" ] || BOOT_APPLICATION_ID=$(printf '%s\n' "$_ebc_existing_ids" | head -n1)
         WRITE_FILE=false
+        # A file written before dataApiBaseUrl existed is rewritten (same key and secret) to add it.
+        if [ -z "$(jq -r '.dataApiBaseUrl // empty' "$CRED_FILE" 2>/dev/null)" ]; then
+            WRITE_FILE=true
+            log "$STEP_CREDENTIAL" "$CRED_FILE has no dataApiBaseUrl; rewriting it with the same key and secret"
+        fi
         _ebc_key_preview=$(printf '%s' "$BOOT_KEY" | cut -c1-8)
         log "$STEP_CREDENTIAL" \
             "reusing existing bootstrap credential id=$BOOT_APPLICATION_ID key=${_ebc_key_preview}..." \
@@ -176,6 +181,10 @@ ensure_bootstrap_credential() {
         "(secret not logged)"
 }
 
+# The credential file's dataApiBaseUrl comes from Discovery (urls.dataManagementApi), not built by
+# hand. Discovered before step b so a failure here can never strand a just-minted, unsaved secret.
+DATA_API_BASE_URL=$(dms_discover_data_api_url "$STEP_CREDFILE" "$DMS_BASE_URL" "$PUBLIC_ORIGIN")
+
 ensure_bootstrap_credential
 
 # ------------------------------------------------------------------------------------------------
@@ -219,12 +228,13 @@ integration testing; see bootstrap/README.md to rotate or remove this credential
         --argjson seaId "$SEA_ID" \
         --arg tokenUrl "$_wcf_token_url" \
         --arg apiBaseUrl "$_wcf_api_base_url" \
+        --arg dataApiBaseUrl "$DATA_API_BASE_URL" \
         --arg createdAt "$_wcf_created_at" \
         --arg warning "$_wcf_warning" \
         '{key: $key, secret: $secret, claimSetName: $claimSetName, vendorName: $vendorName,
           applicationName: $applicationName, applicationId: $applicationId,
           educationOrganizationIds: [$seaId], tokenUrl: $tokenUrl, apiBaseUrl: $apiBaseUrl,
-          createdAt: $createdAt, warning: $warning}' \
+          dataApiBaseUrl: $dataApiBaseUrl, createdAt: $createdAt, warning: $warning}' \
         >"$_wcf_tmp" || die "$STEP_CREDFILE" "could not write $_wcf_tmp"
 
     chmod 600 "$_wcf_tmp" || die "$STEP_CREDFILE" "could not chmod $_wcf_tmp"

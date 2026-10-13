@@ -24,6 +24,12 @@
 # source of truth in bootstrap/baseline-edorgs.json (FR-EDORG-14) -- see http/edorgs.http.
 
 @baseUrl = https://localhost/api
+# @dataApiBaseUrl is the root for resource requests (for example https://localhost/api/data). It is
+# not built by hand: it comes from the unauthenticated Discovery request below, at
+# $.urls.dataManagementApi. Send the "discovery" request (section 2) first; REST Client resolves
+# {{discovery.response...}} from that request's last response in this session, so it errors until
+# the request has been sent once.
+@dataApiBaseUrl = {{discovery.response.body.$.urls.dataManagementApi}}
 @key = {{$dotenv DMS_BOOTSTRAP_KEY}}
 @secret = {{$dotenv DMS_BOOTSTRAP_SECRET}}
 
@@ -49,7 +55,8 @@ grant_type=client_credentials
 # 2. Discovery (FR-FEAT-2, FR-TEST-1).
 # -------------------------------------------------------------------------------------------------
 
-### Discovery: the API root document
+### Discovery: the API root document (no authentication). Send this before any data request.
+# @name discovery
 GET {{baseUrl}}
 
 # -------------------------------------------------------------------------------------------------
@@ -58,7 +65,7 @@ GET {{baseUrl}}
 # -------------------------------------------------------------------------------------------------
 
 ### Descriptor list
-GET {{baseUrl}}/data/ed-fi/gradeLevelDescriptors?limit=5&totalCount=true
+GET {{dataApiBaseUrl}}/ed-fi/gradeLevelDescriptors?limit=5&totalCount=true
 Authorization: Bearer {{token.response.body.access_token}}
 
 # -------------------------------------------------------------------------------------------------
@@ -71,7 +78,7 @@ Authorization: Bearer {{token.response.body.access_token}}
 
 ### Write: the middle school feeds into the high school
 # @name writeFeederSchool
-POST {{baseUrl}}/data/ed-fi/feederSchoolAssociations
+POST {{dataApiBaseUrl}}/ed-fi/feederSchoolAssociations
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 
@@ -83,7 +90,7 @@ Content-Type: application/json
 
 ### Read-back, by the same natural key
 # @name readFeederSchool
-GET {{baseUrl}}/data/ed-fi/feederSchoolAssociations?schoolId={{highSchoolId}}&feederSchoolId={{middleSchoolId}}
+GET {{dataApiBaseUrl}}/ed-fi/feederSchoolAssociations?schoolId={{highSchoolId}}&feederSchoolId={{middleSchoolId}}
 Authorization: Bearer {{token.response.body.access_token}}
 
 # -------------------------------------------------------------------------------------------------
@@ -92,7 +99,7 @@ Authorization: Bearer {{token.response.body.access_token}}
 
 ### Paging: limit/offset, with Total-Count in the response headers
 # @name pageOne
-GET {{baseUrl}}/data/ed-fi/gradeLevelDescriptors?limit=5&offset=0&totalCount=true
+GET {{dataApiBaseUrl}}/ed-fi/gradeLevelDescriptors?limit=5&offset=0&totalCount=true
 Authorization: Bearer {{token.response.body.access_token}}
 
 # -------------------------------------------------------------------------------------------------
@@ -102,7 +109,7 @@ Authorization: Bearer {{token.response.body.access_token}}
 # -------------------------------------------------------------------------------------------------
 
 ### Cursor paging: the next page, using the token from request 5's Next-Page-Token header
-GET {{baseUrl}}/data/ed-fi/gradeLevelDescriptors?pageSize=5&pageToken={{pageOne.response.headers.Next-Page-Token}}
+GET {{dataApiBaseUrl}}/ed-fi/gradeLevelDescriptors?pageSize=5&pageToken={{pageOne.response.headers.Next-Page-Token}}
 Authorization: Bearer {{token.response.body.access_token}}
 
 # -------------------------------------------------------------------------------------------------
@@ -116,7 +123,7 @@ GET {{baseUrl}}/changeQueries/v1/availableChangeVersions
 Authorization: Bearer {{token.response.body.access_token}}
 
 ### Change query: an incremental extract of that window
-GET {{baseUrl}}/data/ed-fi/gradeLevelDescriptors?minChangeVersion={{changeVersions.response.body.oldestChangeVersion}}&maxChangeVersion={{changeVersions.response.body.newestChangeVersion}}&totalCount=true
+GET {{dataApiBaseUrl}}/ed-fi/gradeLevelDescriptors?minChangeVersion={{changeVersions.response.body.oldestChangeVersion}}&maxChangeVersion={{changeVersions.response.body.newestChangeVersion}}&totalCount=true
 Authorization: Bearer {{token.response.body.access_token}}
 
 # -------------------------------------------------------------------------------------------------
@@ -125,7 +132,7 @@ Authorization: Bearer {{token.response.body.access_token}}
 # -------------------------------------------------------------------------------------------------
 
 ### ETag: If-Match with the current ETag from request 4's read-back -- expect 204
-PUT {{baseUrl}}/data/ed-fi/feederSchoolAssociations/{{readFeederSchool.response.body.0.id}}
+PUT {{dataApiBaseUrl}}/ed-fi/feederSchoolAssociations/{{readFeederSchool.response.body.0.id}}
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 If-Match: "{{readFeederSchool.response.body.0._etag}}"
@@ -139,7 +146,7 @@ If-Match: "{{readFeederSchool.response.body.0._etag}}"
 }
 
 ### ETag: reusing the now-stale ETag from request 4 -- expect 412 Optimistic Lock Failed
-PUT {{baseUrl}}/data/ed-fi/feederSchoolAssociations/{{readFeederSchool.response.body.0.id}}
+PUT {{dataApiBaseUrl}}/ed-fi/feederSchoolAssociations/{{readFeederSchool.response.body.0.id}}
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 If-Match: "{{readFeederSchool.response.body.0._etag}}"
@@ -158,7 +165,7 @@ If-Match: "{{readFeederSchool.response.body.0._etag}}"
 # -------------------------------------------------------------------------------------------------
 
 ### Deliberately invalid: missing every required field on a school
-POST {{baseUrl}}/data/ed-fi/schools
+POST {{dataApiBaseUrl}}/ed-fi/schools
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 
@@ -179,7 +186,7 @@ Content-Type: application/json
 #      `new-credential --shape assessment --edorg-ids 255901` (Task 13).
 #   2. Get a token for it (repeat request 1 above with that credential's key/secret instead of
 #      {{key}}/{{secret}}).
-#   3. GET {{baseUrl}}/data/ed-fi/students?limit=1 with that token to find a real studentUniqueId.
+#   3. GET {{dataApiBaseUrl}}/ed-fi/students?limit=1 with that token to find a real studentUniqueId.
 #   4. Paste it in place of REPLACE-WITH-POPULATED-STUDENT-ID below.
 #
 # AssessmentVendor can write assessments and studentAssessments in its vendor's namespaces, but
@@ -193,7 +200,7 @@ Content-Type: application/json
 # -------------------------------------------------------------------------------------------------
 
 ### requires populated: an assessment in the vendor's namespace
-POST {{baseUrl}}/data/ed-fi/assessments
+POST {{dataApiBaseUrl}}/ed-fi/assessments
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 
@@ -207,7 +214,7 @@ Content-Type: application/json
 }
 
 ### requires populated: a result for an existing student (by natural key) at a sample school
-POST {{baseUrl}}/data/ed-fi/studentAssessments
+POST {{dataApiBaseUrl}}/ed-fi/studentAssessments
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json
 

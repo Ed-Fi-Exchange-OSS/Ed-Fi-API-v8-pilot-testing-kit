@@ -18,6 +18,10 @@
 # populated, or [] for warehouse credentials, which read everything unscoped (decision 6, plan.md) so
 # FR-CRED-9 doesn't apply to them (FR-CRED-4/7/8/9/10).
 #
+# --namespace-prefix adds namespace prefixes to the credential's vendor, on top of the defaults
+# (uri://ed-fi.org, plus uri://gbisd.edu on populated), so a participant such as an assessment vendor
+# can write data under its own namespace; without it, a write whose Namespace isn't covered gets a 403.
+#
 # --name must be unique: this script never overwrites an existing application or credentials file
 # (FR-CRED-3). Vendor, application, and file creation only start after that check passes, so a
 # rejected name leaves nothing behind.
@@ -55,6 +59,7 @@ usage() {
     cat <<'EOF'
 Usage: new-credential.sh --shape sis|assessment|warehouse --name <name>
                           [--claim-set <name>] [--edorg-ids 1,2,3]
+                          [--namespace-prefix <prefix>[,<prefix>...]]
 
   --shape       Required. sis -> SISVendor, assessment -> AssessmentVendor, warehouse -> DataWarehouse.
   --name        Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
@@ -62,6 +67,11 @@ Usage: new-credential.sh --shape sis|assessment|warehouse --name <name>
   --edorg-ids   Optional comma-separated education organization ids. Defaults depend on --shape and
                 the loaded template: the bootstrapped SEA on minimal, the sample LEA on populated, or
                 none for warehouse credentials.
+  --namespace-prefix
+                Optional comma-separated namespace prefixes (for example uri://acme.example.org),
+                added to the defaults (uri://ed-fi.org, plus uri://gbisd.edu on the populated
+                template) so this credential can write data under its own namespace. Each must start
+                with a scheme and '://', with no spaces; up to 255 characters in total.
 EOF
 }
 
@@ -74,6 +84,7 @@ SHAPE=""
 NAME=""
 CLAIM_SET_ARG=""
 EDORG_IDS_ARG=""
+NAMESPACE_PREFIX_ARG=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -101,6 +112,12 @@ while [ $# -gt 0 ]; do
             shift 2
             ;;
         --edorg-ids=*) EDORG_IDS_ARG="${1#*=}" && shift ;;
+        --namespace-prefix)
+            [ $# -ge 2 ] || die "$STEP_ARGS" "--namespace-prefix requires a value"
+            NAMESPACE_PREFIX_ARG="$2"
+            shift 2
+            ;;
+        --namespace-prefix=*) NAMESPACE_PREFIX_ARG="${1#*=}" && shift ;;
         --help | -h)
             usage
             exit 0
@@ -134,6 +151,52 @@ if [ -n "$EDORG_IDS_ARG" ]; then
     if [ -z "$EDORG_IDS_JSON_ARG" ] || [ "$EDORG_IDS_JSON_ARG" = "[]" ]; then
         die "$STEP_ARGS" "--edorg-ids must be a comma-separated list of numbers (got '$EDORG_IDS_ARG')"
     fi
+fi
+
+# --namespace-prefix: a comma-separated list; every entry non-empty, no whitespace, and a scheme
+# followed by '://' (uri://..., http(s)://...). The joined string is stored in one CMS vendor field,
+# so it is capped at 255 characters (the widest ODS-style column; kept conservative, unverified).
+EXTRA_PREFIXES=""
+if [ -n "$NAMESPACE_PREFIX_ARG" ]; then
+    case "$NAMESPACE_PREFIX_ARG" in
+        *[[:space:]]*)
+            die "$STEP_ARGS" "--namespace-prefix must not contain whitespace (got '$NAMESPACE_PREFIX_ARG')"
+            ;;
+    esac
+    if [ "${#NAMESPACE_PREFIX_ARG}" -gt 255 ]; then
+        die "$STEP_ARGS" "--namespace-prefix must be at most 255 characters (got ${#NAMESPACE_PREFIX_ARG})"
+    fi
+    _np_saved_ifs=$IFS
+    IFS=,
+    # shellcheck disable=SC2086  # intentional word splitting on commas (IFS=,); globbing disabled
+    set -f -- $NAMESPACE_PREFIX_ARG
+    set +f
+    IFS=$_np_saved_ifs
+    case "$NAMESPACE_PREFIX_ARG" in
+        ,* | *, | *,,*)
+            die "$STEP_ARGS" \
+                "--namespace-prefix must be a comma-separated list of non-empty prefixes (got '$NAMESPACE_PREFIX_ARG')"
+            ;;
+    esac
+    for _np in "$@"; do
+        case "$_np" in
+            [A-Za-z]*://?*) ;;
+            *)
+                die "$STEP_ARGS" \
+                    "--namespace-prefix entries must start with a scheme and '://', such as uri://acme.example.org (got '$_np')"
+                ;;
+        esac
+        case "$_np" in
+            *[!A-Za-z0-9+.:/_~%@-]*)
+                die "$STEP_ARGS" \
+                    "--namespace-prefix entries may contain only letters, digits and + . : / _ ~ % @ - (got '$_np')"
+                ;;
+        esac
+        case ",$EXTRA_PREFIXES," in
+            *",$_np,"*) ;;
+            *) EXTRA_PREFIXES="${EXTRA_PREFIXES:+$EXTRA_PREFIXES,}$_np" ;;
+        esac
+    done
 fi
 
 require_env "$STEP_ARGS" \
@@ -292,14 +355,44 @@ else
 fi
 
 # ------------------------------------------------------------------------------------------------
+# Step f2: discover the data API root from DMS's Discovery document (urls.dataManagementApi), for the
+# credential file's dataApiBaseUrl. Done here, before the vendor and application exist, so that a
+# failure leaves nothing behind and the one-time secret can never be minted without being saved.
+# ------------------------------------------------------------------------------------------------
+
+STEP_DISCOVERY=discovery
+DATA_API_BASE_URL=$(dms_discover_data_api_url "$STEP_DISCOVERY" "$DMS_BASE_URL" "$PUBLIC_ORIGIN")
+log "$STEP_DISCOVERY" "dataApiBaseUrl: $DATA_API_BASE_URL (from Discovery urls.dataManagementApi)"
+
+# ------------------------------------------------------------------------------------------------
 # Step g: one vendor per credential, named after --name (spike-notes Q7 parses its id from the
 # Location header via cms_ensure_vendor). uri://gbisd.edu is added on the populated template so
 # writes against the sample data's namespace succeed too.
 # ------------------------------------------------------------------------------------------------
 
-NAMESPACE_PREFIXES="uri://ed-fi.org"
+DEFAULT_NAMESPACE_PREFIXES="uri://ed-fi.org"
 if [ "$TEMPLATE" = "populated" ]; then
-    NAMESPACE_PREFIXES="uri://ed-fi.org,uri://gbisd.edu"
+    DEFAULT_NAMESPACE_PREFIXES="uri://ed-fi.org,uri://gbisd.edu"
+fi
+
+# Defaults first, then --namespace-prefix entries not already present (order preserved).
+NAMESPACE_PREFIXES="$DEFAULT_NAMESPACE_PREFIXES"
+if [ -n "$EXTRA_PREFIXES" ]; then
+    _np_saved_ifs=$IFS
+    IFS=,
+    # shellcheck disable=SC2086  # intentional word splitting on commas (IFS=,); globbing disabled
+    set -f -- $EXTRA_PREFIXES
+    set +f
+    IFS=$_np_saved_ifs
+    for _np in "$@"; do
+        case ",$NAMESPACE_PREFIXES," in
+            *",$_np,"*) ;;
+            *) NAMESPACE_PREFIXES="$NAMESPACE_PREFIXES,$_np" ;;
+        esac
+    done
+    log "$STEP_VENDOR" "namespace prefixes: $NAMESPACE_PREFIXES (defaults: $DEFAULT_NAMESPACE_PREFIXES; added by --namespace-prefix: $EXTRA_PREFIXES)"
+else
+    log "$STEP_VENDOR" "namespace prefixes: $NAMESPACE_PREFIXES (default for the $TEMPLATE template)"
 fi
 
 VENDOR_ID=$(cms_ensure_vendor "$STEP_VENDOR" "$ADMIN_TOKEN" "$NAME" \
@@ -352,15 +445,19 @@ when this credential was created. If it is lost, run new-credential again with a
         --arg key "$CMS_APPLICATION_KEY" \
         --arg secret "$CMS_APPLICATION_SECRET" \
         --argjson educationOrganizationIds "$EDORG_IDS_JSON" \
+        --arg namespacePrefixes "$NAMESPACE_PREFIXES" \
         --arg vendorName "$NAME" \
         --argjson applicationId "$CMS_APPLICATION_ID" \
         --arg tokenUrl "$TOKEN_URL" \
         --arg apiBaseUrl "$API_BASE_URL" \
+        --arg dataApiBaseUrl "$DATA_API_BASE_URL" \
         --arg createdAt "$_wcf_created_at" \
         --arg note "$_wcf_note" \
         '{name: $name, shape: $shape, claimSetName: $claimSetName, key: $key, secret: $secret,
-          educationOrganizationIds: $educationOrganizationIds, vendorName: $vendorName,
+          educationOrganizationIds: $educationOrganizationIds,
+          namespacePrefixes: ($namespacePrefixes | split(",")), vendorName: $vendorName,
           applicationId: $applicationId, tokenUrl: $tokenUrl, apiBaseUrl: $apiBaseUrl,
+          dataApiBaseUrl: $dataApiBaseUrl,
           createdAt: $createdAt, note: $note}' \
         >"$_wcf_tmp" || die "$STEP_WRITE" "could not write $_wcf_tmp"
 
@@ -440,6 +537,7 @@ printf 'Credential "%s" created (shape=%s, claimSet=%s)\n' "$NAME" "$SHAPE" "$CL
 printf 'Key:       %s\n' "$CMS_APPLICATION_KEY"
 printf 'Secret:    %s\n' "$CMS_APPLICATION_SECRET"
 printf 'Token URL: %s\n' "$TOKEN_URL"
+printf 'Data API:  %s\n' "$DATA_API_BASE_URL"
 # KIT_HOST_DIR is the kit folder's host path, passed in by the new-credential host wrapper (this runs
 # in a container and can't know it). Without it, fall back to a path relative to the kit folder.
 printf 'Saved to:  %s.runtime/credentials/%s.json\n' "${KIT_HOST_DIR:+${KIT_HOST_DIR%/}/}" "$NAME"

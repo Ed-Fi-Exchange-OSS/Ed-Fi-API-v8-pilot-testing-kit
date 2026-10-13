@@ -80,6 +80,10 @@ Initialize-KitDirectories
 Write-KitLog 'Starting the stack (docker compose up -d --build --wait).'
 Write-KitLog 'This can take a few minutes on first run: image pulls, the tools image build, schema'
 Write-KitLog 'provisioning, and the template load all happen before this command returns.'
+if ((Get-KitEnvValue -Name 'DATABASE_TEMPLATE' -Default 'minimal') -eq 'populated') {
+    Write-KitLog 'To watch the sample data load, run this from the kit folder in another terminal:'
+    Write-KitLog '  docker compose logs -f init-template'
+}
 
 # Compose's own `--wait` error (for example "container ... has no healthcheck configured") is often
 # the only statement of what went wrong, so its output is captured, as well as streamed, for the

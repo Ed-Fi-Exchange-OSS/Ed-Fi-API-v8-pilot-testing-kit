@@ -380,8 +380,11 @@ else
     _assess_school_id="$POPULATED_SAMPLE_SCHOOL_ID"
     _assess_name="Pilot Kit Smoke Test (Assessment)"
     # Must start with one of the vendor's namespace prefixes (cms_ensure_vendor below):
-    # assessment metadata is authorized NamespaceBased.
-    _assess_namespace="uri://gbisd.edu/pilot-kit-smoke-test"
+    # assessment metadata is authorized NamespaceBased. The vendor gets a custom prefix on top of
+    # the populated defaults, and the assessment is written under it, exercising what
+    # new-credential --namespace-prefix relies on.
+    _assess_custom_prefix="uri://pilot-kit-smoke-test.example.org"
+    _assess_namespace="$_assess_custom_prefix/Assessment"
     _assessment_id=""
     _student_assessment_id=""
     _assess_ok=false
@@ -410,7 +413,8 @@ else
             cms_delete_application assessment-write "$_admin_token" "$_old_id" >/dev/null
         done
         _assess_vendor_id=$(cms_ensure_vendor assessment-write "$_admin_token" "$_assess_name" \
-            "Pilot Kit Automation" "pilot-kit@example.com" "uri://ed-fi.org,uri://gbisd.edu")
+            "Pilot Kit Automation" "pilot-kit@example.com" \
+            "uri://ed-fi.org,uri://gbisd.edu,$_assess_custom_prefix")
         _assess_datastore_id=$(cms_find_datastore_id assessment-write "$_admin_token" "Pilot Kit")
         _assess_body=$(jq -n \
             --argjson vendorId "$_assess_vendor_id" \

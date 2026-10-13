@@ -32,8 +32,17 @@
     template: the bootstrapped SEA on minimal, the sample LEA on populated, or none for warehouse
     credentials.
 
+.PARAMETER NamespacePrefix
+    Optional namespace prefixes (comma-separated string, or an array), for example
+    uri://acme.example.org, added to the defaults (uri://ed-fi.org, plus uri://gbisd.edu on the
+    populated template) so this credential can write data under its own namespace. Each must start
+    with a scheme and '://', with no spaces; up to 255 characters in total.
+
 .EXAMPLE
     ./new-credential.ps1 -Shape sis -Name acme-sis
+
+.EXAMPLE
+    ./new-credential.ps1 -Shape assessment -Name acme-assessment -NamespacePrefix uri://acme.example.org
 
 .EXAMPLE
     ./new-credential.ps1 -Shape warehouse -Name acme.warehouse-01
@@ -49,6 +58,8 @@ param(
     [string]$ClaimSet,
 
     [string]$EdOrgIds,
+
+    [string[]]$NamespacePrefix,
 
     [Alias('h')]
     [switch]$Help
@@ -82,6 +93,31 @@ if ($EdOrgIds -and $EdOrgIds -notmatch '^[0-9]+(,[0-9]+)*$') {
     exit 1
 }
 
+# -NamespacePrefix a,b (unquoted) binds as an array and "a,b" as one string: flatten both to a list.
+$NamespacePrefixList = @()
+if ($NamespacePrefix) {
+    $NamespacePrefixList = @($NamespacePrefix | ForEach-Object { $_.Split(',') })
+    $NamespacePrefixJoined = $NamespacePrefixList -join ','
+    if ($NamespacePrefixJoined -match '\s') {
+        Write-Error "-NamespacePrefix must not contain whitespace (got '$NamespacePrefixJoined')"
+        exit 1
+    }
+    if ($NamespacePrefixJoined.Length -gt 255) {
+        Write-Error "-NamespacePrefix must be at most 255 characters (got $($NamespacePrefixJoined.Length))"
+        exit 1
+    }
+    foreach ($p in $NamespacePrefixList) {
+        if ($p -eq '') {
+            Write-Error "-NamespacePrefix must be a comma-separated list of non-empty prefixes (got '$NamespacePrefixJoined')"
+            exit 1
+        }
+        if ($p -notmatch '^[A-Za-z][A-Za-z0-9+.-]*://[A-Za-z0-9+.:/_~%@-]+$') {
+            Write-Error "-NamespacePrefix entries must start with a scheme and '://', such as uri://acme.example.org (got '$p')"
+            exit 1
+        }
+    }
+}
+
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Push-Location $ScriptDir
 try {
@@ -108,6 +144,9 @@ try {
     }
     if ($EdOrgIds) {
         $containerArgs += @('--edorg-ids', $EdOrgIds)
+    }
+    if ($NamespacePrefixList.Count -gt 0) {
+        $containerArgs += @('--namespace-prefix', ($NamespacePrefixList -join ','))
     }
 
     # Pass the kit folder's host path so the container can print an absolute "Saved to:" path.

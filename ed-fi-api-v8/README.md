@@ -12,9 +12,6 @@ This document assumes no prior Ed-Fi platform operations experience. Ed-Fi-speci
 defined the first time they're used; the full set of definitions is in the
 [PRD glossary](../docs/client-integration-pilot-PRD.md#8-glossary).
 
-If you want the rationale behind how the kit is built rather than how to use it, see
-[`../tasks/plan.md`](../tasks/plan.md).
-
 ## Contents
 
 - [Ed-Fi API v8 Pilot Testing Kit](#ed-fi-api-v8-pilot-testing-kit)
@@ -80,16 +77,17 @@ you start anything else:
 | You are building... | Starting command | Template | Claim set | Allowed namespace prefixes |
 | --- | --- | --- | --- | --- |
 | A **SIS** (Student Information System) integration: writing enrollment, demographic, staff, schedule, and calendar data | `./new-credential.sh --shape sis --name <your-name>` | minimal (the default) | `SISVendor` | `uri://ed-fi.org` (plus `uri://gbisd.edu` on populated) |
-| An **assessment provider** integration: writing assessment metadata and student results that reference existing students and education organizations | `./new-credential.sh --shape assessment --name <your-name>` | populated | `AssessmentVendor` | `uri://ed-fi.org` and `uri://gbisd.edu` only |
+| An **assessment provider** integration: writing assessment metadata and student results that reference existing students and education organizations | `./new-credential.sh --shape assessment --name <your-name>` | populated | `AssessmentVendor` | `uri://ed-fi.org` and `uri://gbisd.edu`, plus any you add with `--namespace-prefix` |
 | A **downstream data warehouse or analytics** integration: reading data out through full extracts and change queries | `./new-credential.sh --shape warehouse --name <your-name>` | populated | `DataWarehouse` -- a kit addition, not a standard Ed-Fi claim set; see [below](#the-data-warehouse-claim-set) | same as above (reads aren't namespace-restricted) |
 
-**Namespace prefixes are fixed.** Namespace-based authorization (for example on assessment
-metadata) checks that the `namespace` of the data you write starts with one of your credential's
-prefixes. The kit sets them and has no option to change them. A write under your own namespace, such
-as `uri://vendor.example.org/Assessment`, returns `403` with `The 'Namespace' value of the data
-does not start with any of the caller's associated namespace prefixes`. Use a namespace that
-starts with an allowed prefix (for example `uri://ed-fi.org/MyVendor`) while testing, and tell the
-pilot team if you need your own. Details: [Namespace
+**Namespace prefixes have defaults you can extend.** Namespace-based authorization (for example on
+assessment metadata) checks that the `namespace` of the data you write starts with one of your
+credential's prefixes. The kit sets the defaults shown above; to write under your own namespace, add
+it when you create the credential, for example `./new-credential.sh --shape assessment --name
+acme-assessment --namespace-prefix uri://acme.example.org` (PowerShell: `-NamespacePrefix`). A write
+under a namespace your credential's prefixes don't cover, such as `uri://vendor.example.org/Assessment`,
+returns `403` with `The 'Namespace' value of the data does not start with any of the caller's
+associated namespace prefixes`. Details: [Namespace
 prefixes](docs/credentials-and-claim-sets.md#namespace-prefixes).
 
 A **claim set** is the named authorization configuration that determines which resources and
@@ -152,7 +150,9 @@ can take a few minutes**: pulling images, building the `tools` image, provisioni
 loading the starting template all happen before the command returns. On the `populated` template,
 budget about 3-8 minutes for a clean first start, of which roughly 2-5 minutes is the sample data
 load (see
-[The populated template](#the-populated-template)).
+[The populated template](#the-populated-template)). While `up` is waiting, you'll see mostly
+`Waiting` lines; on `populated`, `start` prints a hint to follow the sample data load from another
+terminal, in the kit folder, with `docker compose logs -f init-template`.
 
 On success, you'll see something close to this:
 
@@ -215,6 +215,7 @@ Credential "my-sis-client" created (shape=sis, claimSet=SISVendor)
 Key:       <generated>
 Secret:    <generated>
 Token URL: https://localhost/api/oauth/token
+Data API:  https://localhost/api/data
 Saved to:  <kit folder>/.runtime/credentials/my-sis-client.json
 WARNING: this secret cannot be recovered later -- store it now.
 ---------------------------------------------------------------
@@ -246,22 +247,25 @@ To diagnose an authorization failure (for example a `403` in the assessment step
 ### 6. Make your first authenticated request
 
 Your credential file (`.runtime/credentials/<name>.json`) holds the `key`, `secret`, `tokenUrl`,
-and `apiBaseUrl` you need. Three things trip people up on the first request:
+`apiBaseUrl`, and `dataApiBaseUrl` you need. Three things trip people up on the first request:
 
 - **The token endpoint accepts HTTP Basic auth only.** Send the key and secret as the Basic
   `Authorization` header, with `grant_type=client_credentials` in the form body. Putting
   `client_id`/`client_secret` in the body instead returns `400 Malformed Authorization header`.
 - **`apiBaseUrl` (for example `https://localhost/api`) is the Discovery root, not the data root.**
-  Data lives under `{apiBaseUrl}/data/ed-fi/...`, so `{apiBaseUrl}/ed-fi/schools` returns `404`.
-  Discovery's `urls.dataManagementApi` also gives you the data root.
+  Resource requests go to `dataApiBaseUrl` (for example `https://localhost/api/data`), so
+  `{apiBaseUrl}/ed-fi/schools` returns `404` while `{dataApiBaseUrl}/ed-fi/schools` works.
+  `dataApiBaseUrl` is not built by hand: `new-credential` reads it from the Discovery document
+  (`GET {apiBaseUrl}`, no authentication needed) at `urls.dataManagementApi`, and you can do the same
+  in your own client.
 - **Your claim set decides what you can read.** Pick a first request your credential can actually
   make, from the table below.
 
 | Credential shape | Suggested first request | Why this one |
 | --- | --- | --- |
-| `sis` | `GET {apiBaseUrl}/data/ed-fi/schools` | the request `new-credential` itself uses to verify this shape |
-| `assessment` | `GET {apiBaseUrl}/data/ed-fi/assessments` | the verification request for this shape; on the populated template, `GET {apiBaseUrl}/data/ed-fi/students?limit=1` also works |
-| `warehouse` | `GET {apiBaseUrl}/data/ed-fi/students?limit=1` | the verification request for this shape; `DataWarehouse` is read-only, so any `POST`, `PUT`, or `DELETE` returns `403` |
+| `sis` | `GET {dataApiBaseUrl}/ed-fi/schools` | the request `new-credential` itself uses to verify this shape |
+| `assessment` | `GET {dataApiBaseUrl}/ed-fi/assessments` | the verification request for this shape; on the populated template, `GET {dataApiBaseUrl}/ed-fi/students?limit=1` also works |
+| `warehouse` | `GET {dataApiBaseUrl}/ed-fi/students?limit=1` | the verification request for this shape; `DataWarehouse` is read-only, so any `POST`, `PUT`, or `DELETE` returns `403` |
 
 Worked example, using the values from your credential file in place of the placeholders. The
 certificate flags are there because the certificate is self-signed; see
@@ -269,20 +273,21 @@ certificate flags are there because the certificate is self-signed; see
 
 ```shell
 # Bash (needs curl and jq)
+DATA_API=$(curl --cacert ssl/server.crt -s https://localhost/api | jq -r .urls.dataManagementApi)
 TOKEN=$(curl --cacert ssl/server.crt -s -u "<key>:<secret>" \
   -d "grant_type=client_credentials" https://localhost/api/oauth/token | jq -r .access_token)
-curl --cacert ssl/server.crt -H "Authorization: Bearer $TOKEN" \
-  "https://localhost/api/data/ed-fi/schools?limit=5"
+curl --cacert ssl/server.crt -H "Authorization: Bearer $TOKEN" "$DATA_API/ed-fi/schools?limit=5"
 ```
 
 ```powershell
 # PowerShell 7
 $secret = ConvertTo-SecureString "<secret>" -AsPlainText -Force
 $credential = [pscredential]::new("<key>", $secret)
+$dataApi = (Invoke-RestMethod -SkipCertificateCheck -Uri https://localhost/api).urls.dataManagementApi
 $token = (Invoke-RestMethod -SkipCertificateCheck -Method Post `
   -Uri https://localhost/api/oauth/token -Authentication Basic -Credential $credential `
   -Body @{ grant_type = "client_credentials" }).access_token
-Invoke-RestMethod -SkipCertificateCheck -Uri "https://localhost/api/data/ed-fi/schools?limit=5" `
+Invoke-RestMethod -SkipCertificateCheck -Uri "$dataApi/ed-fi/schools?limit=5" `
   -Authentication Bearer -Token (ConvertTo-SecureString $token -AsPlainText -Force)
 ```
 
@@ -548,7 +553,7 @@ failures, each with the exact command or message to look for.
   of parameter $1` in `CompositeRelationalWriteSecondCommand.MapAuthorizationFailureAsync`. This is
   an upstream DMS issue, not something the kit can fix. Workaround: use an allowed namespace
   prefix for the assessment (see [Namespace
-  prefixes](docs/credentials-and-claim-sets.md#namespace-prefixes)).
+  prefixes](docs/credentials-and-claim-sets.md#namespace-prefixes)). Upstream issue: DMS-1596.
 - **Swagger UI leaves `pageSize` empty.** DMS advertises a default `pageSize` of 500, but rejects
   `pageSize` without `pageToken`. So the kit's Swagger UI removes that default. To page with a
   cursor in Swagger UI, fill in both. Upstream issue: DMS-1588.

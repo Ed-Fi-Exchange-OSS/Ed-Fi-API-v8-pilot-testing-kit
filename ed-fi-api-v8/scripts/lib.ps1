@@ -530,6 +530,15 @@ function Get-KitJsonProperty {
 $script:KitWaitErrorPattern = 'container [^ ]+ (has no healthcheck configured|exited \(-?[0-9]+\)' +
 '|is unhealthy)|service "?[^" ]+"? didn.?t complete successfully'
 
+# Image pull/download failures in `up` output. Compose's raw text for these is a wall of signed CDN
+# URLs, so Show-KitUpFailure replaces it with one plain message. The timeout wordings only count
+# when the same line also mentions a registry/URL/pull, so a service's own timeout isn't mistaken
+# for one. Matched case-insensitively (-match's default).
+$script:KitPullErrorPattern = 'failed to copy|pull access denied|error pulling' +
+'|failed to resolve reference' +
+'|(TLS handshake timeout|i/o timeout).*(pull|registry|https?://|resolve)' +
+'|(pull|registry|https?://|resolve).*(TLS handshake timeout|i/o timeout)'
+
 # ConvertTo-KitPlainLines -Lines L -- L without carriage returns or ANSI color/cursor sequences.
 function ConvertTo-KitPlainLines {
     param([string[]] $Lines = @())
@@ -695,6 +704,12 @@ function Show-KitUpFailure {
     param([string[]] $UpOutput = @())
     Write-KitLog ''
     Write-KitLog 'Startup did not complete.'
+    $plain = @(ConvertTo-KitPlainLines -Lines $UpOutput)
+    if (@($plain | Where-Object { $_ -match $script:KitPullErrorPattern }).Count -gt 0) {
+        Write-KitLog ("Docker couldn't download one or more images. Check your network/proxy (try " +
+            '`docker pull hello-world`), then re-run start; it is safe to retry.')
+        return
+    }
     $errors = @(Get-KitComposeWaitErrors -Lines $UpOutput)
     if ($errors.Count -gt 0) {
         Write-KitLog 'Compose reported:'

@@ -18,7 +18,7 @@
 #
 # How it works:
 #   1. Reads http/edorgs.http's "@name = value" file variables (@seaId, @leaId, and so on).
-#   2. Extracts the JSON body of each *uncommented* "POST {{baseUrl}}/data/ed-fi/<resource>" request
+#   2. Extracts the JSON body of each *uncommented* "POST {{dataApiBaseUrl}}/ed-fi/<resource>" request
 #      (the five baseline requests; the commented-out "add more organizations" templates at the
 #      bottom of the file are plain text starting with "#", so they never match). This relies on
 #      http/edorgs.http formatting each JSON body with the opening "{" and closing "}" alone on their
@@ -77,7 +77,7 @@ done <"$VARS_FILE"
 [ -s "$SED_SCRIPT" ] || die "$STEP" "no @name = value file variables found in $EDORGS_HTTP_FILE"
 
 # ------------------------------------------------------------------------------------------------
-# Step 2: extract each uncommented "POST {{baseUrl}}/data/ed-fi/<resource>" request's JSON body.
+# Step 2: extract each uncommented "POST {{dataApiBaseUrl}}/ed-fi/<resource>" request's JSON body.
 # Emits, for each match, a "===RESOURCE:<resource>===" marker line, the body lines verbatim
 # (including the delimiting "{" and "}" lines), then "===END===".
 # ------------------------------------------------------------------------------------------------
@@ -88,9 +88,9 @@ awk '
         line = $0
     }
     state == "idle" {
-        if (line ~ /^POST \{\{baseUrl\}\}\/data\/ed-fi\/[A-Za-z]+$/) {
+        if (line ~ /^POST \{\{dataApiBaseUrl\}\}\/ed-fi\/[A-Za-z]+$/) {
             resource = line
-            sub(/^POST \{\{baseUrl\}\}\/data\/ed-fi\//, "", resource)
+            sub(/^POST \{\{dataApiBaseUrl\}\}\/ed-fi\//, "", resource)
             state = "afterpost"
         }
         next
@@ -156,7 +156,7 @@ while IFS= read -r _blk_line; do
 done <"$WORK_DIR/blocks.txt"
 
 [ "$BLOCK_COUNT" -gt 0 ] || die "$STEP" \
-    "no 'POST {{baseUrl}}/data/ed-fi/<resource>' requests found in $EDORGS_HTTP_FILE"
+    "no 'POST {{dataApiBaseUrl}}/ed-fi/<resource>' requests found in $EDORGS_HTTP_FILE"
 
 log "$STEP" "parsed $BLOCK_COUNT request(s) from $EDORGS_HTTP_FILE"
 

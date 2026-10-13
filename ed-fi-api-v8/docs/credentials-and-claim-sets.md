@@ -18,6 +18,7 @@ integration credential below is scoped to one or more of them.
 ```text
 Usage: ./new-credential.sh --shape sis|assessment|warehouse --name <name>
                             [--claim-set <name>] [--edorg-ids 1,2,3]
+                            [--namespace-prefix <prefix>[,<prefix>...]]
 
   --shape       Required. sis -> SISVendor, assessment -> AssessmentVendor, warehouse -> DataWarehouse.
   --name        Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
@@ -25,10 +26,15 @@ Usage: ./new-credential.sh --shape sis|assessment|warehouse --name <name>
   --edorg-ids   Optional comma-separated education organization ids. Defaults depend on --shape and
                 the loaded template: the bootstrapped SEA on minimal, the sample LEA on populated, or
                 none for warehouse credentials.
+  --namespace-prefix
+                Optional comma-separated namespace prefixes (for example uri://acme.example.org),
+                added to the defaults (uri://ed-fi.org, plus uri://gbisd.edu on the populated
+                template) so this credential can write data under its own namespace. Each must start
+                with a scheme and '://', with no spaces; up to 255 characters in total.
 ```
 
 `new-credential.ps1` accepts the same options as named PowerShell parameters: `-Shape`, `-Name`,
-`-ClaimSet`, `-EdOrgIds`, `-Help`.
+`-ClaimSet`, `-EdOrgIds`, `-NamespacePrefix`, `-Help`.
 
 It registers a new CMS vendor and application, prints the resulting key and secret exactly once (they
 cannot be recovered afterward), saves them to `.runtime/credentials/<name>.json`, and makes one
@@ -68,17 +74,19 @@ schools), scoping a SIS or assessment credential to just the SEA or just the LEA
 ./new-credential.sh --shape assessment --name acme-assessment --edorg-ids 255901
 ./new-credential.sh --shape warehouse --name acme-warehouse
 ./new-credential.sh --shape sis --name acme-sis-school --edorg-ids 990002
+./new-credential.sh --shape assessment --name acme-assessment --namespace-prefix uri://acme.example.org
 
 # PowerShell
 .\new-credential.ps1 -Shape sis -Name acme-sis
 .\new-credential.ps1 -Shape assessment -Name acme-assessment -EdOrgIds 255901
 .\new-credential.ps1 -Shape warehouse -Name acme-warehouse
+.\new-credential.ps1 -Shape assessment -Name acme-assessment -NamespacePrefix uri://acme.example.org
 ```
 
 ### Namespace prefixes
 
-`new-credential` registers each credential's CMS vendor with a fixed set of namespace prefixes,
-chosen by the template actually loaded, not by `--shape`:
+`new-credential` registers each credential's CMS vendor with default namespace prefixes, chosen by
+the template actually loaded, not by `--shape`:
 
 | Template actually loaded | Namespace prefixes |
 | --- | --- |
@@ -86,17 +94,31 @@ chosen by the template actually loaded, not by `--shape`:
 | populated | `uri://ed-fi.org`, `uri://gbisd.edu` |
 
 An `assessment` credential is meant for the populated template, so in practice it gets
-`uri://ed-fi.org` and `uri://gbisd.edu` only. There is no option to add others.
+`uri://ed-fi.org` and `uri://gbisd.edu` unless you add your own.
+
+To write under your own namespace, add it with `--namespace-prefix` (PowerShell: `-NamespacePrefix`).
+It takes one prefix or a comma-separated list, which is **added to** the defaults above, not a
+replacement for them. Each prefix must start with a scheme and `://` (for example
+`uri://acme.example.org`) and contain no spaces. Duplicates are ignored, and the prefixes are
+recorded in `.runtime/credentials/<name>.json` as `namespacePrefixes`. Because each credential gets
+its own vendor, named after `--name`, the extra prefixes apply to that credential only.
+
+```shell
+./new-credential.sh --shape assessment --name acme-assessment --namespace-prefix uri://acme.example.org
+```
 
 Assessment metadata is authorized by namespace: the `namespace` of an assessment you write must
-start with one of those prefixes. A write under your own namespace, for example
-`uri://vendor.example.org/Assessment`, returns `403` with `The 'Namespace' value of the data does
-not start with any of the caller's associated namespace prefixes`. Use a namespace that starts with
-an allowed prefix instead, such as `uri://ed-fi.org/MyVendor` or `uri://gbisd.edu/MyVendor`.
+start with one of the credential's prefixes. A write under a namespace that none of them covers, for
+example `uri://vendor.example.org/Assessment` from a credential created without
+`--namespace-prefix uri://vendor.example.org`, returns `403` with `The 'Namespace' value of the data does
+not start with any of the caller's associated namespace prefixes`. Either create the credential with
+`--namespace-prefix` for your namespace (a new credential needs a new `--name`), or use a namespace
+that starts with an existing prefix, such as `uri://ed-fi.org/MyVendor` or
+`uri://gbisd.edu/MyVendor`.
 
 The same applies to a `studentAssessment` that references an assessment. If the referenced
 assessment is in a disallowed namespace, DMS currently returns `500` rather than `403`; see
-[Known limitations](../README.md#known-limitations).
+[Known limitations](../README.md#known-limitations) (upstream issue DMS-1596).
 
 ## Claim sets the kit uses
 
@@ -154,10 +176,15 @@ shape:
   "educationOrganizationIds": [99],
   "tokenUrl": "https://localhost/api/oauth/token",
   "apiBaseUrl": "https://localhost/api",
+  "dataApiBaseUrl": "https://localhost/api/data",
   "createdAt": "2026-09-30T15:41:13Z",
   "warning": "ADMIN credential for local testing only. ..."
 }
 ```
+
+`apiBaseUrl` is the Discovery root; `dataApiBaseUrl` is the root for resource requests
+(`{dataApiBaseUrl}/ed-fi/schools`). It comes from Discovery's `urls.dataManagementApi`, not from
+string concatenation. Credential files from `new-credential` carry the same two fields.
 
 It's scoped to the SEA (`educationOrganizationIds: [99]`), which -- as noted above -- is enough to
 reach the whole baseline hierarchy beneath it. Re-running `start` or `./bootstrap.sh` reuses this

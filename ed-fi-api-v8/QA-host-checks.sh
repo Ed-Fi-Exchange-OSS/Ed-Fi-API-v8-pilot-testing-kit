@@ -4,9 +4,9 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# Maintainer runbook for Checkpoint E: runs the "Host check before distribution" table in
-# tasks/traceability.md against a running kit on a Docker host. Not a participant tool, and not
-# part of CI. Each check prints PASS/FAIL with the evidence, and the run ends with a summary.
+# Maintainer runbook for QA: "Host check before distribution" against a running kit on a Docker
+# host. Not a participant tool, and not part of CI. Each check prints PASS/FAIL with the evidence,
+# and the run ends with a summary.
 #
 # Checks that edit .env back it up to .env.host-checks.bak first and restore it afterwards, including
 # on Ctrl+C. Throwaway credentials, a claim set, a vendor, and a Profile are left in CMS; `reset`
@@ -29,9 +29,8 @@ usage() {
     cat <<'EOF'
 Usage: tasks/host-checks.sh <check>... | all | list
 
-Runs Checkpoint E host checks from tasks/traceability.md against the running kit. Start the kit
-first (./start.sh). Run `list` to see the checks; `all` runs every scripted check in a safe order,
-ending with the destructive one (bad-checksum resets the stack).
+Start the kit first (./start.sh). Run `list` to see the checks; `all` runs every scripted check
+in a safe order, ending with the destructive one (bad-checksum resets the stack).
 
 Two checks stay manual and are printed at the end of `all`: pgAdmin in a browser, and a fresh
 reader following the README (FR-DOC-7).
@@ -258,6 +257,39 @@ check_claimset_reload() { # T18: claim set imported on a running stack is usable
         || fail claimset-usable "new-credential with $name failed (a 500 here means the reload didn't apply)"
 }
 
+check_namespace_prefix() { # --namespace-prefix: bad values rejected; added prefix authorizes writes
+    say "namespace-prefix"
+    local prefix="uri://hc-$RUN_ID.example.org" plain="hc-ns-plain-$RUN_ID" extra="hc-ns-extra-$RUN_ID"
+    local out rc body s t
+    out=$(./new-credential.sh --shape assessment --name "hc-ns-bad-$RUN_ID" --namespace-prefix "not-a-uri" 2>&1); rc=$?
+    printf '%s\n' "$out" | tail -n 2 | sed 's/^/    /'
+    [ "$rc" -ne 0 ] && [ ! -f ".runtime/credentials/hc-ns-bad-$RUN_ID.json" ] \
+        && pass namespace-prefix-invalid "rejected 'not-a-uri' (exit $rc), no credential file" \
+        || fail namespace-prefix-invalid "exit $rc for 'not-a-uri'"
+    body=$(jq -nc --arg namespace "$prefix/Assessment" \
+        '{assessmentIdentifier: "hc-namespace-prefix", namespace: $namespace, assessmentTitle: "Host check",
+          academicSubjects: [{academicSubjectDescriptor: "uri://ed-fi.org/AcademicSubjectDescriptor#English Language Arts"}]}')
+    ./new-credential.sh --shape assessment --name "$plain" >/dev/null 2>&1 \
+        || { fail namespace-prefix "new-credential without --namespace-prefix failed"; return; }
+    t=$(cred_token "$plain")
+    s=$(code -X POST -H "Authorization: Bearer $t" -H 'Content-Type: application/json' -d "$body" \
+        "$ORIGIN/api/data/ed-fi/assessments")
+    [ "$s" = 403 ] && pass namespace-prefix-default-403 "POST assessment under $prefix without the option -> 403" \
+        || fail namespace-prefix-default-403 "POST -> $s (expected 403)"
+    ./new-credential.sh --shape assessment --name "$extra" --namespace-prefix "$prefix" >/dev/null 2>&1 \
+        || { fail namespace-prefix "new-credential --namespace-prefix $prefix failed"; return; }
+    note "namespacePrefixes in the credential file: $(jq -c .namespacePrefixes ".runtime/credentials/$extra.json")"
+    jq -e --arg p "$prefix" '.namespacePrefixes | index("uri://ed-fi.org") and index($p)' \
+        ".runtime/credentials/$extra.json" >/dev/null \
+        && pass namespace-prefix-recorded "credential file lists the defaults plus $prefix" \
+        || fail namespace-prefix-recorded "credential file's namespacePrefixes lacks a default or $prefix"
+    t=$(cred_token "$extra")
+    s=$(code -X POST -H "Authorization: Bearer $t" -H 'Content-Type: application/json' -d "$body" \
+        "$ORIGIN/api/data/ed-fi/assessments")
+    [ "$s" = 201 ] || [ "$s" = 200 ] && pass namespace-prefix-write "POST assessment under $prefix with the option -> $s" \
+        || fail namespace-prefix-write "POST -> $s (expected 201)"
+}
+
 check_profiles() { # Checkpoint B / FR-FEAT-5: a Profile restricts the response
     say "profiles"
     local a pname vid did pid ed app key secret t body keys
@@ -377,8 +409,9 @@ check_warehouse() { # T9/T11: warehouse reads everything incl. /deletes; writes 
 
 # --- main ---------------------------------------------------------------------------------------
 
-ALL=(discovery-https claimsets unknown-claimset counts-stable data-v3 rate-limit missing-cert redirect-503
-    claimset-reload profiles bad-secret secret-rotation secrets-in-logs bad-checksum warehouse)
+ALL=(discovery-https claimsets unknown-claimset namespace-prefix counts-stable data-v3 rate-limit
+    missing-cert redirect-503 claimset-reload profiles bad-secret secret-rotation secrets-in-logs
+    bad-checksum warehouse)
 
 [ $# -gt 0 ] || { usage; exit 2; }
 case "$1" in

@@ -9,6 +9,11 @@
 
 @baseUrlApi = https://localhost/api
 @baseUrlConfig = https://localhost/config
+# @dataApiBaseUrl is the root for resource requests (for example https://localhost/api/data), read
+# from the unauthenticated Discovery request below at $.urls.dataManagementApi. Send the "discovery"
+# request before the data request; REST Client errors on {{discovery.response...}} until it has been
+# sent once in this session.
+@dataApiBaseUrl = {{discovery.response.body.$.urls.dataManagementApi}}
 @cmsAdminSecret = {{$dotenv CMS_ADMIN_CLIENT_SECRET}}
 
 ### Authenticate with bootstrap credentials
@@ -42,6 +47,10 @@ Content-Type: application/json
     "enabled": true
 }
 
+### Discovery (no authentication): find the data API root
+# @name discovery
+GET {{baseUrlApi}}
+
 ### Authenticate with DMS using warehouse claimset client
 # @name warehouseToken
 POST {{baseUrlApi}}/oauth/token
@@ -53,7 +62,7 @@ grant_type=client_credentials
 &client_secret={{application.response.body.secret}}
 
 ### Get all students, with total count header
-GET {{baseUrlApi}}/data/ed-fi/students?totalCount=true
+GET {{dataApiBaseUrl}}/ed-fi/students?totalCount=true
 Authorization: Bearer {{warehouseToken.response.body.access_token}}
 
 ### Retrieve the apiClientId to use below in resetting the credentials

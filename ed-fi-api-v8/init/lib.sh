@@ -157,6 +157,48 @@ dms_token_try() {
     printf '%s' "$_dtt_token"
 }
 
+# dms_discover_data_api_url <step> <dms_base_url> <public_origin> -> the data API root on stdout.
+# Sends an unauthenticated GET to DMS's Discovery document (<dms_base_url>, the API root) and prints
+# its `urls.dataManagementApi` value (for example https://localhost/api/data) exactly as DMS returns
+# it -- never built by string concatenation. DMS builds the URLs in that document from the request's
+# forwarded host/scheme, and this call goes straight to DMS (not through NGINX, which would otherwise
+# add those headers), so it sends X-Forwarded-Proto and X-Forwarded-Host for <public_origin> itself:
+# that makes DMS answer with the public URL participants use, not the in-network http://dms:8080 one.
+# Dies, naming <step>, if the request fails, is not a 200, or has no urls.dataManagementApi. A value
+# that doesn't start with <public_origin> is returned anyway, with a WARNING on stderr.
+dms_discover_data_api_url() {
+    _ddu_step="$1"
+    _ddu_base_url="$2"
+    _ddu_origin="$3"
+    _ddu_proto="${_ddu_origin%%://*}"
+    _ddu_host="${_ddu_origin#*://}"
+    _ddu_host="${_ddu_host%%/*}"
+    _ddu_response_file=$(mktemp "${TMPDIR:-/tmp}/dms-discovery.XXXXXX")
+    if ! _ddu_status=$(kit_curl -o "$_ddu_response_file" -w '%{http_code}' \
+        --header "X-Forwarded-Proto: $_ddu_proto" \
+        --header "X-Forwarded-Host: $_ddu_host" \
+        --request GET "$_ddu_base_url"); then
+        rm -f "$_ddu_response_file"
+        die "$_ddu_step" "could not send the Discovery request GET $_ddu_base_url"
+    fi
+    if [ "$_ddu_status" != "200" ]; then
+        _ddu_detail=$(cat "$_ddu_response_file" 2>/dev/null)
+        rm -f "$_ddu_response_file"
+        die "$_ddu_step" "Discovery GET $_ddu_base_url returned HTTP $_ddu_status: $_ddu_detail"
+    fi
+    _ddu_url=$(jq -r '.urls.dataManagementApi // empty' "$_ddu_response_file" 2>/dev/null)
+    rm -f "$_ddu_response_file"
+    [ -n "$_ddu_url" ] || die "$_ddu_step" \
+        "Discovery GET $_ddu_base_url returned no urls.dataManagementApi"
+    case "$_ddu_url" in
+        "$_ddu_origin"/*) ;;
+        *) log "$_ddu_step" \
+            "WARNING: Discovery's urls.dataManagementApi ($_ddu_url) does not start with" \
+            "PUBLIC_ORIGIN ($_ddu_origin); the credential file will carry it as DMS returned it" ;;
+    esac
+    printf '%s' "$_ddu_url"
+}
+
 # cms_request <step> <method> <url> <token> [curl-data-args...]
 # Issues one bearer-authenticated CMS request. Only a request that can't be sent or times out dies
 # here (naming <step>); the caller decides which status codes are acceptable, since that differs by
