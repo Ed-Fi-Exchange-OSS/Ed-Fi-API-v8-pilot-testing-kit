@@ -81,7 +81,7 @@ you start anything else:
 
 | You are building... | Starting command | Template | Claim set | Allowed namespace prefixes |
 | --- | --- | --- | --- | --- |
-| A **SIS** (Student Information System) integration: writing enrollment, demographic, staff, schedule, and calendar data | `./new-credential.sh --shape sis --name <your-name>` | minimal (the default) | `SISVendorEdOrgWrite` (kit addition: `SISVendor` plus write access to `StateEducationAgency` and `LocalEducationAgency`) | `uri://ed-fi.org` (plus `uri://gbisd.edu` on populated) |
+| A **SIS** (Student Information System) integration: writing enrollment, demographic, staff, schedule, and calendar data | `./new-credential.sh --shape sis --name <your-name>` | minimal (the default) | `SISVendorEdOrgWrite` -- a kit addition, not a standard Ed-Fi claim set; see [credentials-and-claim-sets.md](docs/credentials-and-claim-sets.md) | `uri://ed-fi.org` (plus `uri://gbisd.edu` on populated) |
 | An **assessment provider** integration: writing assessment metadata and student results that reference existing students and education organizations | `./new-credential.sh --shape assessment --name <your-name>` | populated | `AssessmentVendor` | `uri://ed-fi.org` and `uri://gbisd.edu`, plus any you add with `--namespace-prefix` |
 | A **downstream data warehouse or analytics** integration: reading data out through full extracts and change queries | `./new-credential.sh --shape warehouse --name <your-name>` | populated | `DataWarehouse` -- a kit addition, not a standard Ed-Fi claim set; see [below](#the-data-warehouse-claim-set) | same as above (reads aren't namespace-restricted) |
 
@@ -398,7 +398,10 @@ which grants `Read` and `ReadChanges` (the action that gates `/deletes`, `/keyCh
 change-query extracts) on every resource and descriptor domain, with no education organization
 scoping and no Create/Update/Delete. It's defined in version control at
 [`bootstrap/claimsets/DataWarehouse.json`](bootstrap/claimsets/DataWarehouse.json), reviewable like
-any other file in this repository.
+any other file in this repository. The kit's other claim set,
+[`bootstrap/claimsets/SISVendorEdOrgWrite.json`](bootstrap/claimsets/SISVendorEdOrgWrite.json), is the
+default for `--shape sis`: `SISVendor` plus `Create`/`Read`/`Update` (no `Delete`) on
+`stateEducationAgency` and `localEducationAgency`.
 
 Use file [warehouse-claimset.http](./http/warehouse-claimset.http) to create and test a
 set of credentials using the `DataWarehouse` claimset.
@@ -448,8 +451,13 @@ A few behaviors you'll likely run into, each worth one sentence:
   minutes pass, Ed-Fi API's Profile cache window) -- the kit ships no Profiles itself, but if you add one
   through CS, restart Ed-Fi API (`docker compose restart dms`) before relying on it.
 - **A school-scoped SIS credential can still read every school in the hierarchy**, not just the one
-  it's scoped to -- the SIS claim set's (`SISVendor` and `SISVendorEdOrgWrite`) school read uses an authorization strategy that doesn't further
-  restrict by education organization. This is expected Ed-Fi platform behavior, not a kit defect.
+  it's scoped to -- the SIS claim set's (`SISVendor` and `SISVendorEdOrgWrite`) school read uses an authorization
+  strategy that doesn't further restrict by education organization. This is expected Ed-Fi platform
+  behavior, not a kit defect.
+- **A scoped SIS credential can modify any State Education Agency or Local Education Agency**, not just
+  the ones it's scoped to -- `SISVendorEdOrgWrite` grants `Update` on `stateEducationAgency` and
+  `localEducationAgency` with `NoFurtherAuthorizationRequired`. That is acceptable for a single-tenant
+  pilot kit; it would not be for a shared deployment.
 - **Swagger UI needs internet access in your browser.** `/swagger/` loads `swagger-ui-dist` from
   `unpkg.com` at browse time; if your network blocks it, the page won't render even though the rest
   of the kit is unaffected.

@@ -228,6 +228,53 @@ check_claimsets() { # T11: DataWarehouse listed; only Read and ReadChanges
         || fail claimset-actions "got '$actions'"
 }
 
+check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential writes SEA/LEA; Delete 403
+    say "sis-claimset"
+    local a name="hc-sis-$RUN_ID" cs t sea lea s sid lid
+    a=$(admin_token)
+    if curl -sk -H "Authorization: Bearer $a" "$ORIGIN/config/v3/claimSets?limit=500" | jq -e 'map(.claimSetName // .name) | index("SISVendorEdOrgWrite")' >/dev/null; then
+        pass sis-claimset-listed "SISVendorEdOrgWrite is in GET /config/v3/claimSets"
+    else
+        fail sis-claimset-listed "SISVendorEdOrgWrite not found"
+    fi
+    ./new-credential.sh --shape sis --name "$name" >/dev/null 2>&1 || { fail sis-claimset "new-credential failed"; return; }
+    cs=$(jq -r .claimSetName ".runtime/credentials/$name.json")
+    [ "$cs" = SISVendorEdOrgWrite ] && pass sis-claimset-default "the sis credential reports claimSet=$cs" \
+        || fail sis-claimset-default "claimSet=$cs (expected SISVendorEdOrgWrite)"
+    t=$(cred_token "$name")
+    sea=$((RUN_ID % 800000 + 100000)); lea=$((sea + 1))
+    s=$(code -X POST -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
+        -d "$(jq -nc --argjson id "$sea" '{stateEducationAgencyId: $id, nameOfInstitution: "Host check SEA",
+          categories: [{educationOrganizationCategoryDescriptor: "uri://ed-fi.org/EducationOrganizationCategoryDescriptor#State Education Agency"}]}')" \
+        "$ORIGIN/api/data/ed-fi/stateEducationAgencies")
+    [ "$s" = 201 ] || [ "$s" = 200 ] && pass sis-sea-post "POST stateEducationAgency -> $s" || fail sis-sea-post "POST -> $s (expected 201)"
+    s=$(code -X POST -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
+        -d "$(jq -nc --argjson id "$lea" --argjson sea "$sea" '{localEducationAgencyId: $id, nameOfInstitution: "Host check LEA",
+          localEducationAgencyCategoryDescriptor: "uri://ed-fi.org/LocalEducationAgencyCategoryDescriptor#Regular public school district",
+          categories: [{educationOrganizationCategoryDescriptor: "uri://ed-fi.org/EducationOrganizationCategoryDescriptor#Local Education Agency"}],
+          stateEducationAgencyReference: {stateEducationAgencyId: $sea}}')" \
+        "$ORIGIN/api/data/ed-fi/localEducationAgencies")
+    [ "$s" = 201 ] || [ "$s" = 200 ] && pass sis-lea-post "POST localEducationAgency -> $s" || fail sis-lea-post "POST -> $s (expected 201)"
+    sid=$(curl -sk -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/stateEducationAgencies?stateEducationAgencyId=$sea" | jq -r '.[0].id // empty')
+    s=$(code -X PUT -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
+        -d "$(jq -nc --arg id "$sid" --argjson sea "$sea" '{id: $id, stateEducationAgencyId: $sea, nameOfInstitution: "Host check SEA (updated)",
+          categories: [{educationOrganizationCategoryDescriptor: "uri://ed-fi.org/EducationOrganizationCategoryDescriptor#State Education Agency"}]}')" \
+        "$ORIGIN/api/data/ed-fi/stateEducationAgencies/$sid")
+    [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-sea-put "PUT stateEducationAgency -> $s" || fail sis-sea-put "PUT -> $s (expected 204)"
+    s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/stateEducationAgencies/$sid")
+    [ "$s" = 403 ] && pass sis-sea-delete-403 "DELETE stateEducationAgency -> 403" || fail sis-sea-delete-403 "DELETE -> $s"
+    lid=$(curl -sk -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/localEducationAgencies?localEducationAgencyId=$lea" | jq -r '.[0].id // empty')
+    s=$(code -X PUT -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
+        -d "$(jq -nc --arg id "$lid" --argjson lea "$lea" --argjson sea "$sea" '{id: $id, localEducationAgencyId: $lea, nameOfInstitution: "Host check LEA (updated)",
+          localEducationAgencyCategoryDescriptor: "uri://ed-fi.org/LocalEducationAgencyCategoryDescriptor#Regular public school district",
+          categories: [{educationOrganizationCategoryDescriptor: "uri://ed-fi.org/EducationOrganizationCategoryDescriptor#Local Education Agency"}],
+          stateEducationAgencyReference: {stateEducationAgencyId: $sea}}')" \
+        "$ORIGIN/api/data/ed-fi/localEducationAgencies/$lid")
+    [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-lea-put "PUT localEducationAgency -> $s" || fail sis-lea-put "PUT -> $s (expected 204)"
+    s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/localEducationAgencies/$lid")
+    [ "$s" = 403 ] && pass sis-lea-delete-403 "DELETE localEducationAgency -> 403" || fail sis-lea-delete-403 "DELETE -> $s"
+}
+
 check_unknown_claimset() { # FR-CLAIM-10 / FR-CRED-10: unknown claim set rejected; edorg override works
     say "unknown-claimset"
     local out rc ed
@@ -409,7 +456,7 @@ check_warehouse() { # T9/T11: warehouse reads everything incl. /deletes; writes 
 
 # --- main ---------------------------------------------------------------------------------------
 
-ALL=(discovery-https claimsets unknown-claimset namespace-prefix counts-stable data-v3 rate-limit
+ALL=(discovery-https claimsets sis-claimset unknown-claimset namespace-prefix counts-stable data-v3 rate-limit
     missing-cert redirect-503 claimset-reload profiles bad-secret secret-rotation secrets-in-logs
     bad-checksum warehouse)
 

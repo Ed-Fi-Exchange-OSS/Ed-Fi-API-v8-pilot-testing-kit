@@ -91,6 +91,11 @@ correct education organizations, not remove them. `NoFurtherAuthorizationRequire
 `Create` -- a new organization is not yet inside any education organization the credential is scoped
 to, so a relationship-based strategy would reject it.
 
+The same strategy applies to `Update`, so a SIS credential scoped to one education organization can
+still modify any State Education Agency or Local Education Agency in the instance. That is acceptable
+for a single-tenant pilot kit, where every credential belongs to the same participant; it would not be
+for a multi-tenant deployment.
+
 It is the default claim set for `./new-credential.sh --shape sis --name <your-name>`; pass `--claim-set SISVendor` to use the standard one instead.
 
 ## Adding another file

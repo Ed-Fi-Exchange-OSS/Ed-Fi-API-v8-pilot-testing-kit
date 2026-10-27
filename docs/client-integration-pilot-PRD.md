@@ -392,9 +392,9 @@ has no standard claim set at all.
   Warehouse and `SISVendorEdOrgWrite` claim sets SHALL be additions, leaving
   the standard sets intact per FR-FEAT-9.
 - **FR-CLAIM-8:** Provisioning of the Data Warehouse and `SISVendorEdOrgWrite`
-  claim sets SHALL be part of bootstrapping, SHALL be idempotent, and SHALL fail startup with an actionable
-  message rather than leaving a warehouse or SIS participant without a usable
-  claim set.
+  claim sets SHALL be part of bootstrapping, SHALL be idempotent, and SHALL
+  fail startup with an actionable message rather than leaving a warehouse or SIS
+  participant without a usable claim set.
 - **FR-CLAIM-9:** Each kit-provided claim set definition SHALL be held in
   version control in a reviewable form, so that its permissions are auditable
   and reproducible across participants rather than assembled at runtime by

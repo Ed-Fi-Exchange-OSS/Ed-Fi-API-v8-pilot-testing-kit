@@ -19,7 +19,9 @@
     container exits with.
 
 .PARAMETER Shape
-    Required. sis -> SISVendorEdOrgWrite (a kit addition: SISVendor plus write access to StateEducationAgency and LocalEducationAgency), assessment -> AssessmentVendor, warehouse -> DataWarehouse.
+    Required. sis -> SISVendorEdOrgWrite (a kit addition: SISVendor plus write access
+    to stateEducationAgency and localEducationAgency), assessment -> AssessmentVendor,
+    warehouse -> DataWarehouse.
 
 .PARAMETER Name
     Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
