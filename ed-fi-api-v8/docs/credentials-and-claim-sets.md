@@ -126,9 +126,10 @@ assessment is in a disallowed namespace, DMS currently returns `500` rather than
 | `EdFiSandbox` | Standard | the bootstrap (admin) credential only | broad access, including creating education organizations; reads people through `RelationshipsWithEdOrgsAndPeople` (not unrestricted) |
 | `SISVendor` | Standard | `new-credential --shape sis` | the standard SIS integration permissions |
 | `AssessmentVendor` | Standard | `new-credential --shape assessment` | the standard assessment integration permissions |
+| `SISVendorEdOrgWrite` | **Kit addition** -- not a standard Ed-Fi claim set | `new-credential --shape sis --claim-set SISVendorEdOrgWrite` | everything `SISVendor` grants, plus `Create`/`Read`/`Update` on `stateEducationAgency` and `localEducationAgency` (see `bootstrap/claimsets/README.md`) |
 | `DataWarehouse` | **Kit addition** -- not a standard Ed-Fi claim set | `new-credential --shape warehouse` | `Read` and `ReadChanges` on every resource and descriptor domain, unscoped by education organization; no `Create`/`Update`/`Delete` |
 
-The kit never modifies a standard claim set -- `DataWarehouse` is purely additive.
+The kit never modifies a standard claim set -- `DataWarehouse` and `SISVendorEdOrgWrite` are purely additive.
 
 ## The Data Warehouse claim set
 

@@ -69,6 +69,30 @@ source, not the conventional-pattern fallback the task allowed.
 `init/claimsets.sh` is still the runtime guard: CMS reports any unrecognized `claimName` as a
 non-empty `warnings` array on import, and the script fails rather than accept a partial grant.
 
+## `SISVendorEdOrgWrite.json`
+
+A **kit addition**: a copy of the standard `SISVendor` claim set plus write access to two education
+organization endpoints. A SIS loading its own education organizations got 403 because `SISVendor`
+grants only `Read` on the `educationOrganizations` domain, and neither `stateEducationAgency` nor
+`localEducationAgency` is granted separately.
+
+Every root grant and authorization strategy below matches `SISVendor` as defined in the DMS ds52
+`Claims.json` (`claimSets` entries on the `claimsHierarchy` roots), with these additions as children of
+`educationOrganizations`:
+
+| Resource | Actions | Authorization strategy |
+| --- | --- | --- |
+| `stateEducationAgency` | `Create`, `Read`, `Update` | `NoFurtherAuthorizationRequired` |
+| `localEducationAgency` | `Create`, `Read`, `Update` | `NoFurtherAuthorizationRequired` |
+
+`Read` is repeated on the children because a child claim's actions replace, rather than add to, what
+it would inherit from its parent. `Delete` is deliberately not granted: a SIS needs to load and
+correct education organizations, not remove them. `NoFurtherAuthorizationRequired` is required for
+`Create` -- a new organization is not yet inside any education organization the credential is scoped
+to, so a relationship-based strategy would reject it.
+
+Use it with `./new-credential.sh --shape sis --claim-set SISVendorEdOrgWrite --name <your-name>`.
+
 ## Adding another file
 
 `init/claimsets.sh` imports every `*.json` file in this directory, in name order. A new file needs
