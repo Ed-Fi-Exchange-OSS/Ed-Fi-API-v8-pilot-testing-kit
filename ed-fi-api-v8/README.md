@@ -81,7 +81,7 @@ you start anything else:
 
 | You are building... | Starting command | Template | Claim set | Allowed namespace prefixes |
 | --- | --- | --- | --- | --- |
-| A **SIS** (Student Information System) integration: writing enrollment, demographic, staff, schedule, and calendar data | `./new-credential.sh --shape sis --name <your-name>` | minimal (the default) | `SISVendor` | `uri://ed-fi.org` (plus `uri://gbisd.edu` on populated) |
+| A **SIS** (Student Information System) integration: writing enrollment, demographic, staff, schedule, and calendar data | `./new-credential.sh --shape sis --name <your-name>` | minimal (the default) | `SISVendorEdOrgWrite` (kit addition: `SISVendor` plus write access to `StateEducationAgency` and `LocalEducationAgency`) | `uri://ed-fi.org` (plus `uri://gbisd.edu` on populated) |
 | An **assessment provider** integration: writing assessment metadata and student results that reference existing students and education organizations | `./new-credential.sh --shape assessment --name <your-name>` | populated | `AssessmentVendor` | `uri://ed-fi.org` and `uri://gbisd.edu`, plus any you add with `--namespace-prefix` |
 | A **downstream data warehouse or analytics** integration: reading data out through full extracts and change queries | `./new-credential.sh --shape warehouse --name <your-name>` | populated | `DataWarehouse` -- a kit addition, not a standard Ed-Fi claim set; see [below](#the-data-warehouse-claim-set) | same as above (reads aren't namespace-restricted) |
 
@@ -216,7 +216,7 @@ Expected output (printed once -- the secret can't be recovered later, so save it
 
 ```text
 ---------------------------------------------------------------
-Credential "my-sis-client" created (shape=sis, claimSet=SISVendor)
+Credential "my-sis-client" created (shape=sis, claimSet=SISVendorEdOrgWrite)
 Key:       <generated>
 Secret:    <generated>
 Token URL: https://localhost/api/oauth/token
@@ -448,7 +448,7 @@ A few behaviors you'll likely run into, each worth one sentence:
   minutes pass, Ed-Fi API's Profile cache window) -- the kit ships no Profiles itself, but if you add one
   through CS, restart Ed-Fi API (`docker compose restart dms`) before relying on it.
 - **A school-scoped SIS credential can still read every school in the hierarchy**, not just the one
-  it's scoped to -- `SISVendor`'s school read uses an authorization strategy that doesn't further
+  it's scoped to -- the SIS claim set's (`SISVendor` and `SISVendorEdOrgWrite`) school read uses an authorization strategy that doesn't further
   restrict by education organization. This is expected Ed-Fi platform behavior, not a kit defect.
 - **Swagger UI needs internet access in your browser.** `/swagger/` loads `swagger-ui-dist` from
   `unpkg.com` at browse time; if your network blocks it, the page won't render even though the rest

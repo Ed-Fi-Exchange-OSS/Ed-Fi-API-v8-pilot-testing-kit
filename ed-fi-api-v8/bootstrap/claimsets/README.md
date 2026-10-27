@@ -91,7 +91,7 @@ correct education organizations, not remove them. `NoFurtherAuthorizationRequire
 `Create` -- a new organization is not yet inside any education organization the credential is scoped
 to, so a relationship-based strategy would reject it.
 
-Use it with `./new-credential.sh --shape sis --claim-set SISVendorEdOrgWrite --name <your-name>`.
+It is the default claim set for `./new-credential.sh --shape sis --name <your-name>`; pass `--claim-set SISVendor` to use the standard one instead.
 
 ## Adding another file
 

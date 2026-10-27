@@ -10,7 +10,8 @@
 # (`new-credential.sh`/`.ps1`) or directly as
 # `docker compose run --rm --no-deps --user 0:0 tools sh /init/new-credential.sh ...` (FR-CRED-1).
 #
-# --shape selects the standard claim set (sis -> SISVendor, assessment -> AssessmentVendor,
+# --shape selects the claim set (sis -> SISVendorEdOrgWrite, a kit addition: SISVendor plus write
+# access to StateEducationAgency and LocalEducationAgency; assessment -> AssessmentVendor;
 # warehouse -> DataWarehouse, a kit addition), overridable with --claim-set, which is
 # rejected unless GET /v3/claimSets already lists it (FR-CLAIM-10). --edorg-ids overrides the default
 # scoping; the default comes from the template actually loaded (read from the kit.initialization
@@ -61,7 +62,7 @@ Usage: new-credential.sh --shape sis|assessment|warehouse --name <name>
                           [--claim-set <name>] [--edorg-ids 1,2,3]
                           [--namespace-prefix <prefix>[,<prefix>...]]
 
-  --shape       Required. sis -> SISVendor, assessment -> AssessmentVendor, warehouse -> DataWarehouse.
+  --shape       Required. sis -> SISVendorEdOrgWrite (a kit addition: SISVendor plus write access to StateEducationAgency and LocalEducationAgency), assessment -> AssessmentVendor, warehouse -> DataWarehouse.
   --name        Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
   --claim-set   Optional override of the claim set implied by --shape. Must already exist in CMS.
   --edorg-ids   Optional comma-separated education organization ids. Defaults depend on --shape and
@@ -286,7 +287,7 @@ determine_template
 # ------------------------------------------------------------------------------------------------
 
 case "$SHAPE" in
-    sis) DEFAULT_CLAIM_SET=SISVendor ;;
+    sis) DEFAULT_CLAIM_SET=SISVendorEdOrgWrite ;;
     assessment) DEFAULT_CLAIM_SET=AssessmentVendor ;;
     warehouse) DEFAULT_CLAIM_SET=DataWarehouse ;;
 esac
