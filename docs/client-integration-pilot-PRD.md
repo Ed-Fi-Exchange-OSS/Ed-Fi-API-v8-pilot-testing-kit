@@ -374,11 +374,11 @@ has no standard claim set at all.
   `SISVendorEdOrgWrite` claim set by default, rather than the standard "SIS
   Vendor" claim set (`SISVendor` in v8, `SIS Vendor` in v7). The standard claim
   set grants only read on education organizations, so a SIS cannot load the
-  State Education Agency and Local Education Agency records it needs to begin
-  loading data (pilot feedback). `SISVendorEdOrgWrite` SHALL grant everything
+  State Education Agency, Local Education Agency, and School records it needs
+  to begin loading data (pilot feedback). `SISVendorEdOrgWrite` SHALL grant everything
   `SISVendor` grants, with the same authorization strategies, plus create, read,
-  and update on `stateEducationAgency` and `localEducationAgency`. It SHALL NOT
-  grant delete on either. A participant who wants the unmodified standard claim
+  and update on `stateEducationAgency`, `localEducationAgency`, and `school`.
+  It SHALL NOT grant delete on any of them. A participant who wants the unmodified standard claim
   set can still select `SISVendor` through FR-CLAIM-10.
 - **FR-CLAIM-4:** Assessment integrations SHALL use the standard "Assessment
   Vendor" claim set (`AssessmentVendor` in v8, `Assessment Vendor` in v7).
@@ -1021,8 +1021,8 @@ created on their behalf rather than inheriting an opaque seeded state.
 - **SIS Vendor claim set:** The standard claim set for SIS integrations. It
   grants only read on education organizations.
 - **SISVendorEdOrgWrite claim set:** A kit-provided copy of the SIS Vendor
-  claim set that adds create, read, and update on `stateEducationAgency` and
-  `localEducationAgency`. Used by default for SIS integration credentials on v8.
+  claim set that adds create, read, and update on `stateEducationAgency`,
+  `localEducationAgency`, and `school`. Used by default for SIS integration credentials on v8.
 - **Assessment Vendor claim set:** The standard claim set for assessment
   provider integrations.
 - **Data Warehouse claim set:** A read-all, write-nothing claim set that this

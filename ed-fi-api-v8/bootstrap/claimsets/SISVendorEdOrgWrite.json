@@ -212,6 +212,51 @@
       ]
     },
     {
+      "name": "school",
+      "claimName": "http://ed-fi.org/identity/claims/ed-fi/school",
+      "parentClaimName": "http://ed-fi.org/identity/claims/domains/educationOrganizations",
+      "actions": [
+        {
+          "name": "Create",
+          "enabled": true
+        },
+        {
+          "name": "Read",
+          "enabled": true
+        },
+        {
+          "name": "Update",
+          "enabled": true
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "actions": [
         {
           "enabled": true,

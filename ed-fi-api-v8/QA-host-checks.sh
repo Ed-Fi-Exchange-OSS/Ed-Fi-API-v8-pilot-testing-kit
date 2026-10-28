@@ -228,9 +228,9 @@ check_claimsets() { # T11: DataWarehouse listed; only Read and ReadChanges
         || fail claimset-actions "got '$actions'"
 }
 
-check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential writes SEA/LEA; Delete 403
+check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential writes SEA/LEA/School; Delete 403
     say "sis-claimset"
-    local a name="hc-sis-$RUN_ID" cs t sea lea s sid lid
+    local a name="hc-sis-$RUN_ID" cs t sea lea sch s sid lid scid
     a=$(admin_token)
     if curl -sk -H "Authorization: Bearer $a" "$ORIGIN/config/v3/claimSets?limit=500" | jq -e 'map(.claimSetName // .name) | index("SISVendorEdOrgWrite")' >/dev/null; then
         pass sis-claimset-listed "SISVendorEdOrgWrite is in GET /config/v3/claimSets"
@@ -242,7 +242,7 @@ check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential 
     [ "$cs" = SISVendorEdOrgWrite ] && pass sis-claimset-default "the sis credential reports claimSet=$cs" \
         || fail sis-claimset-default "claimSet=$cs (expected SISVendorEdOrgWrite)"
     t=$(cred_token "$name")
-    sea=$((RUN_ID % 800000 + 100000)); lea=$((sea + 1))
+    sea=$((RUN_ID % 800000 + 100000)); lea=$((sea + 1)); sch=$((sea + 2))
     s=$(code -X POST -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
         -d "$(jq -nc --argjson id "$sea" '{stateEducationAgencyId: $id, nameOfInstitution: "Host check SEA",
           categories: [{educationOrganizationCategoryDescriptor: "uri://ed-fi.org/EducationOrganizationCategoryDescriptor#State Education Agency"}]}')" \
@@ -273,6 +273,21 @@ check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential 
     [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-lea-put "PUT localEducationAgency -> $s" || fail sis-lea-put "PUT -> $s (expected 204)"
     s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/localEducationAgencies/$lid")
     [ "$s" = 403 ] && pass sis-lea-delete-403 "DELETE localEducationAgency -> 403" || fail sis-lea-delete-403 "DELETE -> $s"
+    local schbody='{schoolId: $id, nameOfInstitution: $n,
+          educationOrganizationCategories: [{educationOrganizationCategoryDescriptor: "uri://ed-fi.org/EducationOrganizationCategoryDescriptor#School"}],
+          gradeLevels: [{gradeLevelDescriptor: "uri://ed-fi.org/GradeLevelDescriptor#First grade"}],
+          localEducationAgencyReference: {localEducationAgencyId: $lea}}'
+    s=$(code -X POST -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
+        -d "$(jq -nc --argjson id "$sch" --argjson lea "$lea" --arg n "Host check School" "$schbody")" \
+        "$ORIGIN/api/data/ed-fi/schools")
+    [ "$s" = 201 ] || [ "$s" = 200 ] && pass sis-school-post "POST school -> $s" || fail sis-school-post "POST -> $s (expected 201)"
+    scid=$(curl -sk -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/schools?schoolId=$sch" | jq -r '.[0].id // empty')
+    s=$(code -X PUT -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
+        -d "$(jq -nc --argjson id "$sch" --argjson lea "$lea" --arg n "Host check School (updated)" "$schbody" | jq -c --arg sid "$scid" '. + {id: $sid}')" \
+        "$ORIGIN/api/data/ed-fi/schools/$scid")
+    [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-school-put "PUT school -> $s" || fail sis-school-put "PUT -> $s (expected 204)"
+    s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/schools/$scid")
+    [ "$s" = 403 ] && pass sis-school-delete-403 "DELETE school -> 403" || fail sis-school-delete-403 "DELETE -> $s"
 }
 
 check_unknown_claimset() { # FR-CLAIM-10 / FR-CRED-10: unknown claim set rejected; edorg override works

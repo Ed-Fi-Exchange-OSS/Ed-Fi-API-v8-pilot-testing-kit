@@ -28,7 +28,7 @@ Usage: ./new-credential.sh --shape sis|assessment|warehouse --name <name>
                             [--namespace-prefix <prefix>[,<prefix>...]]
 
   --shape       Required. sis -> SISVendorEdOrgWrite (a kit addition: SISVendor plus write access
-                to stateEducationAgency and localEducationAgency), assessment -> AssessmentVendor,
+                to stateEducationAgency, localEducationAgency, and school), assessment -> AssessmentVendor,
                 warehouse -> DataWarehouse.
   --name        Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
   --claim-set   Optional override of the claim set implied by --shape. Must already exist in CMS.

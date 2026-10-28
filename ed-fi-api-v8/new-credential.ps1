@@ -20,7 +20,7 @@
 
 .PARAMETER Shape
     Required. sis -> SISVendorEdOrgWrite (a kit addition: SISVendor plus write access
-    to stateEducationAgency and localEducationAgency), assessment -> AssessmentVendor,
+    to stateEducationAgency, localEducationAgency, and school), assessment -> AssessmentVendor,
     warehouse -> DataWarehouse.
 
 .PARAMETER Name

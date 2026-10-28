@@ -21,7 +21,7 @@ Usage: ./new-credential.sh --shape sis|assessment|warehouse --name <name>
                             [--namespace-prefix <prefix>[,<prefix>...]]
 
   --shape       Required. sis -> SISVendorEdOrgWrite (a kit addition: SISVendor plus write access
-                to stateEducationAgency and localEducationAgency), assessment -> AssessmentVendor,
+                to stateEducationAgency, localEducationAgency, and school), assessment -> AssessmentVendor,
                 warehouse -> DataWarehouse.
   --name        Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
   --claim-set   Optional override of the claim set implied by --shape. Must already exist in CMS.
@@ -128,7 +128,7 @@ assessment is in a disallowed namespace, DMS currently returns `500` rather than
 | `EdFiSandbox` | Standard | the bootstrap (admin) credential only | broad access, including creating education organizations; reads people through `RelationshipsWithEdOrgsAndPeople` (not unrestricted) |
 | `SISVendor` | Standard | not used by default; the base of `SISVendorEdOrgWrite` | the standard SIS integration permissions |
 | `AssessmentVendor` | Standard | `new-credential --shape assessment` | the standard assessment integration permissions |
-| `SISVendorEdOrgWrite` | **Kit addition** -- not a standard Ed-Fi claim set | `new-credential --shape sis` (the default for the sis shape) | everything `SISVendor` grants, plus `Create`/`Read`/`Update` on `stateEducationAgency` and `localEducationAgency` (see `bootstrap/claimsets/README.md`) |
+| `SISVendorEdOrgWrite` | **Kit addition** -- not a standard Ed-Fi claim set | `new-credential --shape sis` (the default for the sis shape) | everything `SISVendor` grants, plus `Create`/`Read`/`Update` on `stateEducationAgency`, `localEducationAgency`, and `school` (see `bootstrap/claimsets/README.md`) |
 | `DataWarehouse` | **Kit addition** -- not a standard Ed-Fi claim set | `new-credential --shape warehouse` | `Read` and `ReadChanges` on every resource and descriptor domain, unscoped by education organization; no `Create`/`Update`/`Delete` |
 
 The kit never modifies a standard claim set -- `DataWarehouse` and `SISVendorEdOrgWrite` are purely additive.

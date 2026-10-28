@@ -71,10 +71,10 @@ non-empty `warnings` array on import, and the script fails rather than accept a 
 
 ## `SISVendorEdOrgWrite.json`
 
-A **kit addition**: a copy of the standard `SISVendor` claim set plus write access to two education
+A **kit addition**: a copy of the standard `SISVendor` claim set plus write access to three education
 organization endpoints. A SIS loading its own education organizations got 403 because `SISVendor`
-grants only `Read` on the `educationOrganizations` domain, and neither `stateEducationAgency` nor
-`localEducationAgency` is granted separately.
+grants only `Read` on the `educationOrganizations` domain, and none of `stateEducationAgency`,
+`localEducationAgency`, or `school` is granted separately.
 
 Every root grant and authorization strategy below matches `SISVendor` as defined in the DMS ds52
 `Claims.json` (`claimSets` entries on the `claimsHierarchy` roots), with these additions as children of
@@ -84,6 +84,7 @@ Every root grant and authorization strategy below matches `SISVendor` as defined
 | --- | --- | --- |
 | `stateEducationAgency` | `Create`, `Read`, `Update` | `NoFurtherAuthorizationRequired` |
 | `localEducationAgency` | `Create`, `Read`, `Update` | `NoFurtherAuthorizationRequired` |
+| `school` | `Create`, `Read`, `Update` | `NoFurtherAuthorizationRequired` |
 
 `Read` is repeated on the children because a child claim's actions replace, rather than add to, what
 it would inherit from its parent. `Delete` is deliberately not granted: a SIS needs to load and
@@ -92,7 +93,7 @@ correct education organizations, not remove them. `NoFurtherAuthorizationRequire
 to, so a relationship-based strategy would reject it.
 
 The same strategy applies to `Update`, so a SIS credential scoped to one education organization can
-still modify any State Education Agency or Local Education Agency in the instance. That is acceptable
+still modify any State Education Agency, Local Education Agency, or school in the instance. That is acceptable
 for a single-tenant pilot kit, where every credential belongs to the same participant; it would not be
 for a multi-tenant deployment.
 

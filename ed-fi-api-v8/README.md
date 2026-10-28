@@ -401,7 +401,7 @@ scoping and no Create/Update/Delete. It's defined in version control at
 any other file in this repository. The kit's other claim set,
 [`bootstrap/claimsets/SISVendorEdOrgWrite.json`](bootstrap/claimsets/SISVendorEdOrgWrite.json), is the
 default for `--shape sis`: `SISVendor` plus `Create`/`Read`/`Update` (no `Delete`) on
-`stateEducationAgency` and `localEducationAgency`.
+`stateEducationAgency`, `localEducationAgency`, and `school`.
 
 Use file [warehouse-claimset.http](./http/warehouse-claimset.http) to create and test a
 set of credentials using the `DataWarehouse` claimset.
@@ -454,9 +454,9 @@ A few behaviors you'll likely run into, each worth one sentence:
   it's scoped to -- the SIS claim set's (`SISVendor` and `SISVendorEdOrgWrite`) school read uses an authorization
   strategy that doesn't further restrict by education organization. This is expected Ed-Fi platform
   behavior, not a kit defect.
-- **A scoped SIS credential can modify any State Education Agency or Local Education Agency**, not just
-  the ones it's scoped to -- `SISVendorEdOrgWrite` grants `Update` on `stateEducationAgency` and
-  `localEducationAgency` with `NoFurtherAuthorizationRequired`. That is acceptable for a single-tenant
+- **A scoped SIS credential can modify any State Education Agency, Local Education Agency, or school**, not just
+  the ones it's scoped to -- `SISVendorEdOrgWrite` grants `Update` on `stateEducationAgency`,
+  `localEducationAgency`, and `school` with `NoFurtherAuthorizationRequired`. That is acceptable for a single-tenant
   pilot kit; it would not be for a shared deployment.
 - **Swagger UI needs internet access in your browser.** `/swagger/` loads `swagger-ui-dist` from
   `unpkg.com` at browse time; if your network blocks it, the page won't render even though the rest
