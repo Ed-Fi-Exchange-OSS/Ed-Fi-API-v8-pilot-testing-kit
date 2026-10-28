@@ -370,8 +370,17 @@ has no standard claim set at all.
   bootstrap claim set. Each SHALL receive a claim set matched to its
   integration shape, so that observed authorization behavior is representative
   of a production client.
-- **FR-CLAIM-3:** SIS integrations SHALL use the standard "SIS Vendor" claim
-  set (`SISVendor` in v8, `SIS Vendor` in v7).
+- **FR-CLAIM-3:** SIS integrations on v8 SHALL use the kit-provided
+  `SISVendorEdOrgWrite` claim set by default, rather than the standard "SIS
+  Vendor" claim set (`SISVendor` in v8, `SIS Vendor` in v7). The standard claim
+  set grants only read on education organizations, so a SIS cannot load the
+  State Education Agency, Local Education Agency, and School records it needs
+  to begin loading data (pilot feedback). `SISVendorEdOrgWrite` SHALL grant everything
+  `SISVendor` grants, with the same authorization strategies, plus create, read,
+  update, and delete on `stateEducationAgency`, `localEducationAgency`, and
+  `school`. It SHALL NOT grant write actions on other education organization
+  types. A participant who wants the unmodified standard claim
+  set can still select `SISVendor` through FR-CLAIM-10.
 - **FR-CLAIM-4:** Assessment integrations SHALL use the standard "Assessment
   Vendor" claim set (`AssessmentVendor` in v8, `Assessment Vendor` in v7).
 - **FR-CLAIM-5:** Because no standard claim set grants broad read access, the
@@ -381,13 +390,13 @@ has no standard claim set at all.
   It SHALL NOT grant create, update, or delete on any resource, so that an
   extraction credential cannot mutate the data it reads.
 - **FR-CLAIM-7:** The kit SHALL NOT modify any standard claim set. The Data
-  Warehouse claim set SHALL be an addition, leaving the standard set intact per
-  FR-FEAT-9.
-- **FR-CLAIM-8:** Provisioning of the Data Warehouse claim set SHALL be part of
-  bootstrapping, SHALL be idempotent, and SHALL fail startup with an actionable
-  message rather than leaving a warehouse participant without a usable claim
-  set.
-- **FR-CLAIM-9:** The Data Warehouse claim set definition SHALL be held in
+  Warehouse and `SISVendorEdOrgWrite` claim sets SHALL be additions, leaving
+  the standard sets intact per FR-FEAT-9.
+- **FR-CLAIM-8:** Provisioning of the Data Warehouse and `SISVendorEdOrgWrite`
+  claim sets SHALL be part of bootstrapping, SHALL be idempotent, and SHALL
+  fail startup with an actionable message rather than leaving a warehouse or SIS
+  participant without a usable claim set.
+- **FR-CLAIM-9:** Each kit-provided claim set definition SHALL be held in
   version control in a reviewable form, so that its permissions are auditable
   and reproducible across participants rather than assembled at runtime by
   opaque steps.
@@ -396,14 +405,20 @@ has no standard claim set at all.
   integration shape, and SHALL reject an unrecognized claim set with an
   actionable message.
 - **FR-CLAIM-11:** Documentation SHALL state which claim set each integration
-  shape uses, and SHALL state plainly that the Data Warehouse claim set is a
-  kit-provided addition rather than a standard Ed-Fi claim set.
+  shape uses, and SHALL state plainly that the Data Warehouse and
+  `SISVendorEdOrgWrite` claim sets are kit-provided additions rather than
+  standard Ed-Fi claim sets. Documentation that describes initial credential
+  creation for the SIS shape SHALL name `SISVendorEdOrgWrite` as the claim set
+  it receives.
 - **FR-CLAIM-12:** Documentation SHALL invite feedback on the Data Warehouse
   claim set specifically, since the absence of a read-all claim set in the
-  platform is itself a finding the pilot can substantiate.
+  platform is itself a finding the pilot can substantiate. It SHALL likewise
+  invite feedback on whether `SISVendorEdOrgWrite` grants the right actions on
+  education organizations.
 - **FR-CLAIM-13:** Where the comparative ODS/API stack is enabled, equivalent
   claim sets SHALL be used for each integration shape, the Data Warehouse claim
-  set SHALL be provisioned there as well, and documentation SHALL note any
+  set SHALL be provisioned there as well, the need for an `SISVendorEdOrgWrite`
+  equivalent SHALL be assessed, and documentation SHALL note any
   naming or capability differences between the two platforms.
 - **FR-CLAIM-14:** Documentation SHALL describe how to send a POST request to
   the `/management/reload-claimsets` endpoint to force an immediate reload of
@@ -821,7 +836,7 @@ created on their behalf rather than inheriting an opaque seeded state.
 | Ed-Fi Swagger UI | Web app for API documentation and testing | Container, both profiles | none |
 | PostgreSQL (ODS/API) | Persistence for the comparative stack | Container, `odsapi` profile | Minimal or populated template initialization, separate volume |
 | PGAdmin | Database inspection for troubleshooting | Container | Preconfigured server definitions, named volume |
-| Bootstrapping | Create the Ed-Fi Sandbox bootstrap credential, provision the Data Warehouse claim set, and create the baseline education organization hierarchy during startup | Host machine, invoked by lifecycle scripts | Bootstrap credential output location, baseline hierarchy definition, Data Warehouse claim set definition |
+| Bootstrapping | Create the Ed-Fi Sandbox bootstrap credential, provision the Data Warehouse and `SISVendorEdOrgWrite` claim sets, and create the baseline education organization hierarchy during startup | Host machine, invoked by lifecycle scripts | Bootstrap credential output location, baseline hierarchy definition, Data Warehouse and `SISVendorEdOrgWrite` claim set definitions |
 | Credential provisioning scripts | Register clients and mint scoped client integration API credentials for both platforms | Host machine | CS API and ODS Admin API configuration surface |
 | Template provisioning | Initialize the selected minimal or populated starting data set on first run | Container entrypoint or init script | Template source artifacts, template selection setting |
 | Log mount | Durable location for API and proxy logs | Host filesystem | Configurable host path |
@@ -846,7 +861,7 @@ created on their behalf rather than inheriting an opaque seeded state.
 - Synthetic data generation tooling. The kit ships the populated template as-is
   and does not generate data at a participant-chosen scale. The fixed
   five-organization hierarchy in section 3.13 is the only exception.
-- Claim sets beyond those named in section 3.6. The kit provisions one addition
+- Claim sets beyond those named in section 3.6. The kit provisions two additions
   and otherwise uses standard claim sets; it is not a claim set authoring tool,
   and participant-defined claim sets are not supported.
 - Configurable, larger, or multi-district education organization hierarchies.
@@ -1004,7 +1019,11 @@ created on their behalf rather than inheriting an opaque seeded state.
 - **Ed-Fi Sandbox claim set:** A standard, broad-access claim set. Used here
   only for the bootstrap credential, never for a participant's integration
   credential.
-- **SIS Vendor claim set:** The standard claim set for SIS integrations.
+- **SIS Vendor claim set:** The standard claim set for SIS integrations. It
+  grants only read on education organizations.
+- **SISVendorEdOrgWrite claim set:** A kit-provided copy of the SIS Vendor
+  claim set that adds create, read, update, and delete on `stateEducationAgency`,
+  `localEducationAgency`, and `school`. Used by default for SIS integration credentials on v8.
 - **Assessment Vendor claim set:** The standard claim set for assessment
   provider integrations.
 - **Data Warehouse claim set:** A read-all, write-nothing claim set that this

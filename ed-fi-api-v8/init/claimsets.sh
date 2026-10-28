@@ -4,8 +4,9 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-claimsets: imports every claim set file in bootstrap/claimsets/ (today, just
-# DataWarehouse.json -- see bootstrap/claimsets/README.md) into CMS with POST /v3/claimSets/import.
+# init-claimsets: imports every claim set file in bootstrap/claimsets/ (today,
+# DataWarehouse.json and SISVendorEdOrgWrite.json -- see bootstrap/claimsets/README.md) into CMS with
+# POST /v3/claimSets/import.
 # Runs after init-identity (for the PilotKitAdmin token) and before DMS starts (compose.core.yml adds
 # it to dms.depends_on): a claim set imported while DMS is already running returns HTTP 500 "No
 # security metadata has been configured for this resource" until DMS's claim-set cache refreshes, up

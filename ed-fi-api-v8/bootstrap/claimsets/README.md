@@ -69,6 +69,38 @@ source, not the conventional-pattern fallback the task allowed.
 `init/claimsets.sh` is still the runtime guard: CMS reports any unrecognized `claimName` as a
 non-empty `warnings` array on import, and the script fails rather than accept a partial grant.
 
+## `SISVendorEdOrgWrite.json`
+
+A **kit addition**: a copy of the standard `SISVendor` claim set plus write access to three education
+organization endpoints. A SIS loading its own education organizations got 403 because `SISVendor`
+grants only `Read` on the `educationOrganizations` domain, and none of `stateEducationAgency`,
+`localEducationAgency`, or `school` is granted separately.
+
+Every root grant and authorization strategy below matches `SISVendor` as defined in the DMS ds52
+`Claims.json` (`claimSets` entries on the `claimsHierarchy` roots), with these additions as children of
+`educationOrganizations`:
+
+| Resource | Actions | Authorization strategy |
+| --- | --- | --- |
+| `stateEducationAgency` | `Create`, `Read`, `Update`, `Delete` | `NoFurtherAuthorizationRequired` |
+| `localEducationAgency` | `Create`, `Read`, `Update`, `Delete` | `NoFurtherAuthorizationRequired` |
+| `school` | `Create`, `Read`, `Update`, `Delete` | `NoFurtherAuthorizationRequired` |
+
+`Read` is repeated on the children because a child claim's actions replace, rather than add to, what
+it would inherit from its parent. `Delete` is granted so a SIS can remove education organizations it
+loaded in error. DMS still rejects deleting an organization that other records reference.
+`NoFurtherAuthorizationRequired` is required for
+`Create` -- a new organization is not yet inside any education organization the credential is scoped
+to, so a relationship-based strategy would reject it.
+
+The same strategy applies to `Update` and `Delete`, so a SIS credential scoped to one education organization can
+still modify or delete any State Education Agency, Local Education Agency, or school in the instance.
+Other education organization types (for example, education service centers) remain read-only. That is acceptable
+for a single-tenant pilot kit, where every credential belongs to the same participant; it would not be
+for a multi-tenant deployment.
+
+It is the default claim set for `./new-credential.sh --shape sis --name <your-name>`; pass `--claim-set SISVendor` to use the standard one instead.
+
 ## Adding another file
 
 `init/claimsets.sh` imports every `*.json` file in this directory, in name order. A new file needs

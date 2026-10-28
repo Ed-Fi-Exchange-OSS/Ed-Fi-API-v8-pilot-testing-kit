@@ -1,0 +1,671 @@
+{
+  "claimSetName": "SISVendorEdOrgWrite",
+  "resourceClaims": [
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Read"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/domains/edFiTypes",
+      "name": "edFiTypes",
+      "parentClaimName": null
+    },
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Read"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/domains/systemDescriptors",
+      "name": "systemDescriptors",
+      "parentClaimName": null
+    },
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Create"
+        },
+        {
+          "enabled": true,
+          "name": "Read"
+        },
+        {
+          "enabled": true,
+          "name": "Update"
+        },
+        {
+          "enabled": true,
+          "name": "Delete"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/domains/managedDescriptors",
+      "name": "managedDescriptors",
+      "parentClaimName": null
+    },
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Read"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/domains/educationOrganizations",
+      "name": "educationOrganizations",
+      "parentClaimName": null
+    },
+    {
+      "name": "stateEducationAgency",
+      "claimName": "http://ed-fi.org/identity/claims/ed-fi/stateEducationAgency",
+      "parentClaimName": "http://ed-fi.org/identity/claims/domains/educationOrganizations",
+      "actions": [
+        {
+          "name": "Create",
+          "enabled": true
+        },
+        {
+          "name": "Read",
+          "enabled": true
+        },
+        {
+          "name": "Update",
+          "enabled": true
+        },
+        {
+          "name": "Delete",
+          "enabled": true
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "localEducationAgency",
+      "claimName": "http://ed-fi.org/identity/claims/ed-fi/localEducationAgency",
+      "parentClaimName": "http://ed-fi.org/identity/claims/domains/educationOrganizations",
+      "actions": [
+        {
+          "name": "Create",
+          "enabled": true
+        },
+        {
+          "name": "Read",
+          "enabled": true
+        },
+        {
+          "name": "Update",
+          "enabled": true
+        },
+        {
+          "name": "Delete",
+          "enabled": true
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "school",
+      "claimName": "http://ed-fi.org/identity/claims/ed-fi/school",
+      "parentClaimName": "http://ed-fi.org/identity/claims/domains/educationOrganizations",
+      "actions": [
+        {
+          "name": "Create",
+          "enabled": true
+        },
+        {
+          "name": "Read",
+          "enabled": true
+        },
+        {
+          "name": "Update",
+          "enabled": true
+        },
+        {
+          "name": "Delete",
+          "enabled": true
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Create"
+        },
+        {
+          "enabled": true,
+          "name": "Read"
+        },
+        {
+          "enabled": true,
+          "name": "Update"
+        },
+        {
+          "enabled": true,
+          "name": "Delete"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "RelationshipsWithEdOrgsAndPeople"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "RelationshipsWithEdOrgsAndPeople"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/domains/people",
+      "name": "people",
+      "parentClaimName": null
+    },
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Create"
+        },
+        {
+          "enabled": true,
+          "name": "Read"
+        },
+        {
+          "enabled": true,
+          "name": "Update"
+        },
+        {
+          "enabled": true,
+          "name": "Delete"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "RelationshipsWithEdOrgsAndPeople"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "RelationshipsWithEdOrgsAndPeople"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "RelationshipsWithEdOrgsAndPeople"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
+          "authorizationStrategies": [
+            {
+              "name": "RelationshipsWithEdOrgsAndPeople"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/domains/relationshipBasedData",
+      "name": "relationshipBasedData",
+      "parentClaimName": null
+    },
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Create"
+        },
+        {
+          "enabled": true,
+          "name": "Read"
+        },
+        {
+          "enabled": true,
+          "name": "Update"
+        },
+        {
+          "enabled": true,
+          "name": "Delete"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/domains/assessmentMetadata",
+      "name": "assessmentMetadata",
+      "parentClaimName": null
+    },
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Create"
+        },
+        {
+          "enabled": true,
+          "name": "Read"
+        },
+        {
+          "enabled": true,
+          "name": "Update"
+        },
+        {
+          "enabled": true,
+          "name": "Delete"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/domains/educationStandards",
+      "name": "educationStandards",
+      "parentClaimName": null
+    },
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Create"
+        },
+        {
+          "enabled": true,
+          "name": "Read"
+        },
+        {
+          "enabled": true,
+          "name": "Update"
+        },
+        {
+          "enabled": true,
+          "name": "Delete"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "RelationshipsWithEdOrgsOnly"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "RelationshipsWithEdOrgsAndPeople"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "RelationshipsWithEdOrgsAndPeople"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
+          "authorizationStrategies": [
+            {
+              "name": "RelationshipsWithEdOrgsAndPeople"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/domains/primaryRelationships",
+      "name": "primaryRelationships",
+      "parentClaimName": null
+    },
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Create"
+        },
+        {
+          "enabled": true,
+          "name": "Read"
+        },
+        {
+          "enabled": true,
+          "name": "Update"
+        },
+        {
+          "enabled": true,
+          "name": "Delete"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Create",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        },
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        },
+        {
+          "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
+          "authorizationStrategies": [
+            {
+              "name": "NamespaceBased"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/ed-fi/educationContent",
+      "name": "educationContent",
+      "parentClaimName": null
+    },
+    {
+      "actions": [
+        {
+          "enabled": true,
+          "name": "Read"
+        },
+        {
+          "enabled": true,
+          "name": "ReadChanges"
+        }
+      ],
+      "authorizationStrategyOverrides": [
+        {
+          "actionName": "Read",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "ReadChanges",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        }
+      ],
+      "claimName": "http://ed-fi.org/identity/claims/ed-fi/crisisEvent",
+      "name": "crisisEvent",
+      "parentClaimName": null
+    }
+  ]
+}

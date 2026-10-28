@@ -145,8 +145,8 @@ services:
     restart: "no"
     logging: *logging
 
-  # Imports the kit's claim sets (today, just DataWarehouse) before DMS starts, so DMS never sees a
-  # claim set that isn't already in its cache. See init/claimsets.sh and bootstrap/claimsets/README.md.
+  # Imports the kit's claim sets (today, DataWarehouse and SISVendorEdOrgWrite) before DMS starts, so
+  # DMS never sees a claim set that isn't already in its cache. See init/claimsets.sh and bootstrap/claimsets/README.md.
   init-claimsets:
     <<: *tools-image
     command: ["sh", "/init/claimsets.sh"]
