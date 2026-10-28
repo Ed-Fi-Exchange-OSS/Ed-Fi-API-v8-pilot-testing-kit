@@ -137,6 +137,10 @@
         {
           "name": "Update",
           "enabled": true
+        },
+        {
+          "name": "Delete",
+          "enabled": true
         }
       ],
       "authorizationStrategyOverrides": [
@@ -158,6 +162,14 @@
         },
         {
           "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
           "authorizationStrategies": [
             {
               "name": "NoFurtherAuthorizationRequired"
@@ -182,6 +194,10 @@
         {
           "name": "Update",
           "enabled": true
+        },
+        {
+          "name": "Delete",
+          "enabled": true
         }
       ],
       "authorizationStrategyOverrides": [
@@ -203,6 +219,14 @@
         },
         {
           "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
           "authorizationStrategies": [
             {
               "name": "NoFurtherAuthorizationRequired"
@@ -227,6 +251,10 @@
         {
           "name": "Update",
           "enabled": true
+        },
+        {
+          "name": "Delete",
+          "enabled": true
         }
       ],
       "authorizationStrategyOverrides": [
@@ -248,6 +276,14 @@
         },
         {
           "actionName": "Update",
+          "authorizationStrategies": [
+            {
+              "name": "NoFurtherAuthorizationRequired"
+            }
+          ]
+        },
+        {
+          "actionName": "Delete",
           "authorizationStrategies": [
             {
               "name": "NoFurtherAuthorizationRequired"

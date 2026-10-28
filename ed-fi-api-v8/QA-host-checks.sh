@@ -228,7 +228,7 @@ check_claimsets() { # T11: DataWarehouse listed; only Read and ReadChanges
         || fail claimset-actions "got '$actions'"
 }
 
-check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential writes SEA/LEA/School; Delete 403
+check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential writes and deletes SEA/LEA/School
     say "sis-claimset"
     local a name="hc-sis-$RUN_ID" cs t sea lea sch s sid lid scid
     a=$(admin_token)
@@ -261,8 +261,6 @@ check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential 
           categories: [{educationOrganizationCategoryDescriptor: "uri://ed-fi.org/EducationOrganizationCategoryDescriptor#State Education Agency"}]}')" \
         "$ORIGIN/api/data/ed-fi/stateEducationAgencies/$sid")
     [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-sea-put "PUT stateEducationAgency -> $s" || fail sis-sea-put "PUT -> $s (expected 204)"
-    s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/stateEducationAgencies/$sid")
-    [ "$s" = 403 ] && pass sis-sea-delete-403 "DELETE stateEducationAgency -> 403" || fail sis-sea-delete-403 "DELETE -> $s"
     lid=$(curl -sk -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/localEducationAgencies?localEducationAgencyId=$lea" | jq -r '.[0].id // empty')
     s=$(code -X PUT -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
         -d "$(jq -nc --arg id "$lid" --argjson lea "$lea" --argjson sea "$sea" '{id: $id, localEducationAgencyId: $lea, nameOfInstitution: "Host check LEA (updated)",
@@ -271,8 +269,6 @@ check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential 
           stateEducationAgencyReference: {stateEducationAgencyId: $sea}}')" \
         "$ORIGIN/api/data/ed-fi/localEducationAgencies/$lid")
     [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-lea-put "PUT localEducationAgency -> $s" || fail sis-lea-put "PUT -> $s (expected 204)"
-    s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/localEducationAgencies/$lid")
-    [ "$s" = 403 ] && pass sis-lea-delete-403 "DELETE localEducationAgency -> 403" || fail sis-lea-delete-403 "DELETE -> $s"
     local schbody='{schoolId: $id, nameOfInstitution: $n,
           educationOrganizationCategories: [{educationOrganizationCategoryDescriptor: "uri://ed-fi.org/EducationOrganizationCategoryDescriptor#School"}],
           gradeLevels: [{gradeLevelDescriptor: "uri://ed-fi.org/GradeLevelDescriptor#First grade"}],
@@ -286,8 +282,13 @@ check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential 
         -d "$(jq -nc --argjson id "$sch" --argjson lea "$lea" --arg n "Host check School (updated)" "$schbody" | jq -c --arg sid "$scid" '. + {id: $sid}')" \
         "$ORIGIN/api/data/ed-fi/schools/$scid")
     [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-school-put "PUT school -> $s" || fail sis-school-put "PUT -> $s (expected 204)"
+    # Delete in reverse dependency order: DMS rejects deleting an organization that is still referenced.
     s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/schools/$scid")
-    [ "$s" = 403 ] && pass sis-school-delete-403 "DELETE school -> 403" || fail sis-school-delete-403 "DELETE -> $s"
+    [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-school-delete "DELETE school -> $s" || fail sis-school-delete "DELETE -> $s (expected 204)"
+    s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/localEducationAgencies/$lid")
+    [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-lea-delete "DELETE localEducationAgency -> $s" || fail sis-lea-delete "DELETE -> $s (expected 204)"
+    s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/stateEducationAgencies/$sid")
+    [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-sea-delete "DELETE stateEducationAgency -> $s" || fail sis-sea-delete "DELETE -> $s (expected 204)"
 }
 
 check_unknown_claimset() { # FR-CLAIM-10 / FR-CRED-10: unknown claim set rejected; edorg override works

@@ -400,7 +400,7 @@ scoping and no Create/Update/Delete. It's defined in version control at
 [`bootstrap/claimsets/DataWarehouse.json`](bootstrap/claimsets/DataWarehouse.json), reviewable like
 any other file in this repository. The kit's other claim set,
 [`bootstrap/claimsets/SISVendorEdOrgWrite.json`](bootstrap/claimsets/SISVendorEdOrgWrite.json), is the
-default for `--shape sis`: `SISVendor` plus `Create`/`Read`/`Update` (no `Delete`) on
+default for `--shape sis`: `SISVendor` plus `Create`/`Read`/`Update`/`Delete` on
 `stateEducationAgency`, `localEducationAgency`, and `school`.
 
 Use file [warehouse-claimset.http](./http/warehouse-claimset.http) to create and test a
@@ -455,7 +455,7 @@ A few behaviors you'll likely run into, each worth one sentence:
   strategy that doesn't further restrict by education organization. This is expected Ed-Fi platform
   behavior, not a kit defect.
 - **A scoped SIS credential can modify any State Education Agency, Local Education Agency, or school**, not just
-  the ones it's scoped to -- `SISVendorEdOrgWrite` grants `Update` on `stateEducationAgency`,
+  the ones it's scoped to -- `SISVendorEdOrgWrite` grants `Update` and `Delete` on `stateEducationAgency`,
   `localEducationAgency`, and `school` with `NoFurtherAuthorizationRequired`. That is acceptable for a single-tenant
   pilot kit; it would not be for a shared deployment.
 - **Swagger UI needs internet access in your browser.** `/swagger/` loads `swagger-ui-dist` from

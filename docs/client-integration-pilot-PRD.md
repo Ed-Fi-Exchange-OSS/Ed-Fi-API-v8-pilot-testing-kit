@@ -377,8 +377,9 @@ has no standard claim set at all.
   State Education Agency, Local Education Agency, and School records it needs
   to begin loading data (pilot feedback). `SISVendorEdOrgWrite` SHALL grant everything
   `SISVendor` grants, with the same authorization strategies, plus create, read,
-  and update on `stateEducationAgency`, `localEducationAgency`, and `school`.
-  It SHALL NOT grant delete on any of them. A participant who wants the unmodified standard claim
+  update, and delete on `stateEducationAgency`, `localEducationAgency`, and
+  `school`. It SHALL NOT grant write actions on other education organization
+  types. A participant who wants the unmodified standard claim
   set can still select `SISVendor` through FR-CLAIM-10.
 - **FR-CLAIM-4:** Assessment integrations SHALL use the standard "Assessment
   Vendor" claim set (`AssessmentVendor` in v8, `Assessment Vendor` in v7).
@@ -1021,7 +1022,7 @@ created on their behalf rather than inheriting an opaque seeded state.
 - **SIS Vendor claim set:** The standard claim set for SIS integrations. It
   grants only read on education organizations.
 - **SISVendorEdOrgWrite claim set:** A kit-provided copy of the SIS Vendor
-  claim set that adds create, read, and update on `stateEducationAgency`,
+  claim set that adds create, read, update, and delete on `stateEducationAgency`,
   `localEducationAgency`, and `school`. Used by default for SIS integration credentials on v8.
 - **Assessment Vendor claim set:** The standard claim set for assessment
   provider integrations.
