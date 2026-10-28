@@ -163,17 +163,17 @@ kit_env_set() {
 # Secret generation. LOCAL DEVELOPMENT ONLY -- see .env.example's header. Every generated value has
 # at least one lowercase letter, one uppercase letter, one digit, and one special character, which
 # satisfies both the 32-128 character client-secret rule and the exactly-32-character
-# CMS_DATABASE_ENCRYPTION_KEY rule (call with the exact length wanted).
+# CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY rule (call with the exact length wanted).
 # ----------------------------------------------------------------------------------------------
 
 _KIT_LOWER='abcdefghijklmnopqrstuvwxyz'
 _KIT_UPPER='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 _KIT_DIGIT='0123456789'
 # No '$': Compose interpolates it in .env values, which would corrupt the secret.
-# No '&' or '=': CMS_ADMIN_CLIENT_SECRET (and the other CMS_*_CLIENT_SECRET values generated from
+# No '&' or '=': CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET (and the other CONFIGURATION_SERVICE_*_CLIENT_SECRET values generated from
 # this pool) is embedded unescaped into application/x-www-form-urlencoded request bodies built by
 # naive string concatenation -- see http/claimset-test.http's
-# "grant_type=client_credentials&client_id=...&client_secret={{CMS_ADMIN_CLIENT_SECRET}}&scope=..."
+# "grant_type=client_credentials&client_id=...&client_secret={{CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET}}&scope=..."
 # line, where the VS Code REST Client extension substitutes the placeholder as literal text without
 # urlencoding it. A literal '&' in the secret would be read as a field separator, and a literal '='
 # would make everything after it in that chunk part of the wrong field, corrupting the request.
@@ -183,8 +183,8 @@ _KIT_SPECIAL_FULL='!@#^*()-_[]{}:;,.?'
 # Same set without ';'. POSTGRES_PASSWORD is embedded, unescaped, into semicolon-delimited
 # ADO.NET/Npgsql-style connection strings elsewhere in the kit (compose.core.yml
 # DatabaseSettings__DatabaseConnection and DATABASE_CONNECTION_STRING_ADMIN, and the connection
-# string init/datastore.sh registers with CMS); a literal ';' in the password would truncate or
-# corrupt those. PGADMIN_DEFAULT_PASSWORD and CMS_DATABASE_ENCRYPTION_KEY use the same safe pool
+# string init/datastore.sh registers with CS); a literal ';' in the password would truncate or
+# corrupt those. PGADMIN_DEFAULT_PASSWORD and CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY use the same safe pool
 # out of caution, even though neither is known to need it today.
 _KIT_SPECIAL_SAFE='!@#^*()-_[]{}:,.?'
 
@@ -296,12 +296,12 @@ kit_ensure_env() {
     [ -f "$example_file" ] || kit_die ".env.example not found in $KIT_DIR"
 
     if [ ! -f "$env_file" ]; then
-        # New secrets would not match an existing database or the CMS state encrypted with the old
+        # New secrets would not match an existing database or the CS state encrypted with the old
         # keys, so refuse rather than generate them. Nothing is deleted here.
         volumes=$(_kit_existing_volumes | tr '\n' ' ')
         if [ -n "$volumes" ]; then
             kit_die ".env is missing, but this kit's Docker volumes already exist: ${volumes% }." \
-                "Freshly generated secrets would not match the existing database and encrypted CMS" \
+                "Freshly generated secrets would not match the existing database and encrypted CS" \
                 "state. Restore the original .env into $KIT_DIR, or run ./reset.sh to DELETE that" \
                 "data and start fresh."
         fi
@@ -311,12 +311,12 @@ kit_ensure_env() {
         kit_log "No .env found. Creating one from .env.example with freshly generated local secrets."
         # Generate every secret before touching .env, so a failure can't leave a half-written file.
         pg_pw=$(kit_generate_secret 32 safe) || kit_die "could not generate POSTGRES_PASSWORD"
-        svc_secret=$(kit_generate_secret 48 full) || kit_die "could not generate CMS_SERVICE_CLIENT_SECRET"
-        ro_secret=$(kit_generate_secret 48 full) || kit_die "could not generate CMS_READONLY_CLIENT_SECRET"
-        admin_secret=$(kit_generate_secret 48 full) || kit_die "could not generate CMS_ADMIN_CLIENT_SECRET"
-        db_key=$(kit_generate_secret 32 safe) || kit_die "could not generate CMS_DATABASE_ENCRYPTION_KEY"
+        svc_secret=$(kit_generate_secret 48 full) || kit_die "could not generate CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET"
+        ro_secret=$(kit_generate_secret 48 full) || kit_die "could not generate CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET"
+        admin_secret=$(kit_generate_secret 48 full) || kit_die "could not generate CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET"
+        db_key=$(kit_generate_secret 32 safe) || kit_die "could not generate CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY"
         id_key=$(openssl rand -base64 32 | tr -d '\n')
-        [ -n "$id_key" ] || kit_die "could not generate CMS_IDENTITY_ENCRYPTION_KEY"
+        [ -n "$id_key" ] || kit_die "could not generate CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY"
         pgadmin_pw=$(kit_generate_secret 32 safe) || kit_die "could not generate PGADMIN_DEFAULT_PASSWORD"
 
         # Owner-only from the start: .env holds secrets, and cp would keep the template's mode.
@@ -324,16 +324,16 @@ kit_ensure_env() {
         chmod 600 "$env_file" 2>/dev/null || true
 
         kit_env_set POSTGRES_PASSWORD "$pg_pw"
-        kit_env_set CMS_SERVICE_CLIENT_SECRET "$svc_secret"
-        kit_env_set CMS_READONLY_CLIENT_SECRET "$ro_secret"
-        kit_env_set CMS_ADMIN_CLIENT_SECRET "$admin_secret"
-        kit_env_set CMS_DATABASE_ENCRYPTION_KEY "$db_key"
-        kit_env_set CMS_IDENTITY_ENCRYPTION_KEY "$id_key"
+        kit_env_set CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET "$svc_secret"
+        kit_env_set CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET "$ro_secret"
+        kit_env_set CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET "$admin_secret"
+        kit_env_set CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY "$db_key"
+        kit_env_set CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY "$id_key"
         kit_env_set PGADMIN_DEFAULT_PASSWORD "$pgadmin_pw"
 
-        kit_log "Generated local secrets for POSTGRES_PASSWORD, CMS_SERVICE_CLIENT_SECRET,"
-        kit_log "CMS_READONLY_CLIENT_SECRET, CMS_ADMIN_CLIENT_SECRET, CMS_DATABASE_ENCRYPTION_KEY,"
-        kit_log "CMS_IDENTITY_ENCRYPTION_KEY, and PGADMIN_DEFAULT_PASSWORD."
+        kit_log "Generated local secrets for POSTGRES_PASSWORD, CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET,"
+        kit_log "CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET, CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET, CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY,"
+        kit_log "CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY, and PGADMIN_DEFAULT_PASSWORD."
         kit_log "Values are never printed; see $env_file if you need one of them."
         return 0
     fi
@@ -661,13 +661,13 @@ kit_show_up_failure() {
 # ----------------------------------------------------------------------------------------------
 
 kit_print_urls() {
-    local origin dms_base cms_base
+    local origin dms_base CONFIGURATION_SERVICE_base
     origin=$(kit_env_get PUBLIC_ORIGIN "https://localhost")
     dms_base=$(kit_env_get DMS_PATH_BASE "api")
-    cms_base=$(kit_env_get CMS_PATH_BASE "config")
+    CONFIGURATION_SERVICE_base=$(kit_env_get CONFIGURATION_SERVICE_PATH_BASE "config")
     kit_log "  API / Discovery:  $origin/$dms_base"
     kit_log "  Token endpoint:   $origin/$dms_base/oauth/token"
-    kit_log "  CMS config:       $origin/$cms_base"
+    kit_log "  CS config:       $origin/$CONFIGURATION_SERVICE_base"
     kit_log "  Swagger UI:       $origin/swagger"
     kit_log "  PGAdmin:          $origin/pgadmin"
 }

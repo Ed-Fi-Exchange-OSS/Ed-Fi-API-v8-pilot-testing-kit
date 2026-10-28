@@ -1,7 +1,7 @@
 {
   "Servers": {
     "1": {
-      "Name": "Ed-Fi API v8 (DMS + CMS)",
+      "Name": "Ed-Fi API v8 (Ed-Fi API v8 + CS)",
       "Group": "Ed-Fi Pilot Kit",
       "Host": "db",
       "Port": 5432,

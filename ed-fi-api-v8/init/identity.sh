@@ -4,9 +4,9 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-identity: seeds the OpenIddict signing key and the three CMS system clients that CMS
+# init-identity: seeds the OpenIddict signing key and the three CS system clients that CS
 # needs before it will issue tokens, then proves the result with a real client-credentials request.
-# Runs once per `up`, after CMS is healthy (compose.init.yml), and is safe to run again: every step
+# Runs once per `up`, after CS is healthy (compose.init.yml), and is safe to run again: every step
 # checks the database first and changes nothing that is already correct.
 #
 # Ported from the PowerShell recipe in dms-compose/setup-openiddict.ps1 and OpenIddict-Crypto.psm1,
@@ -38,11 +38,11 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 require_env "$STEP_ENV" \
-    CMS_SERVICE_CLIENT_SECRET CMS_READONLY_CLIENT_SECRET CMS_ADMIN_CLIENT_SECRET \
-    CMS_IDENTITY_ENCRYPTION_KEY HASH_ITERATIONS \
+    CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET \
+    CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY HASH_ITERATIONS \
     POSTGRES_DB_NAME POSTGRES_PASSWORD CONFIG_BASE_URL
 
-# FR-CLAIM-14: the role PilotKitAdmin needs to call DMS's claim-set reload endpoint.
+# FR-CLAIM-14: the role PilotKitAdmin needs to call Ed-Fi API v8's claim-set reload endpoint.
 # Defaulted here (not required-env) so this script still runs standalone against a stub.
 DMS_CLAIMSET_RELOAD_ROLE="${DMS_CLAIMSET_RELOAD_ROLE:-dms-management-operator}"
 
@@ -83,21 +83,21 @@ validate_secret() {
                "from !@#\$%^&*()-_=+[]{}:;,.?"
 }
 
-for _var in CMS_SERVICE_CLIENT_SECRET CMS_READONLY_CLIENT_SECRET CMS_ADMIN_CLIENT_SECRET; do
+for _var in CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET; do
     validate_secret "$_var"
 done
 unset _var
 
 # The identity encryption key is a base64 key, not a client secret: a valid one can lack special
 # characters, so only its length is checked here.
-if [ "${#CMS_IDENTITY_ENCRYPTION_KEY}" -lt 32 ]; then
-    die "$STEP_ENV" "CMS_IDENTITY_ENCRYPTION_KEY must be at least 32 characters long"
+if [ "${#CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY}" -lt 32 ]; then
+    die "$STEP_ENV" "CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY must be at least 32 characters long"
 fi
 log "$STEP_ENV" "secrets are valid"
 
-# DMS's EndpointRequiredRole grammar (Configuration/EndpointRequiredRole.cs): 1-256 characters, no
-# control characters, and none of space , ; " ' [ ] { }. A value that fails this leaves DMS's claim-
-# set reload endpoint silently unmapped (DMS logs a warning; nothing here would otherwise notice).
+# Ed-Fi API v8's EndpointRequiredRole grammar (Configuration/EndpointRequiredRole.cs): 1-256 characters, no
+# control characters, and none of space , ; " ' [ ] { }. A value that fails this leaves Ed-Fi API v8's claim-
+# set reload endpoint silently unmapped (Ed-Fi API v8 logs a warning; nothing here would otherwise notice).
 _role_len=${#DMS_CLAIMSET_RELOAD_ROLE}
 if [ "$_role_len" -eq 0 ] || [ "$_role_len" -gt 256 ]; then
     die "$STEP_ENV" "DMS_CLAIMSET_RELOAD_ROLE must be 1-256 characters long (got $_role_len)"
@@ -111,7 +111,7 @@ esac
 unset _role_len
 
 # ------------------------------------------------------------------------------------------------
-# Step b: wait, bounded, for CMS to have created its own tables. CMS's database deploy creates
+# Step b: wait, bounded, for CS to have created its own tables. CS's database deploy creates
 # dmscs.OpenIddictApplication, dmscs.OpenIddictKey (and the rest of the dmscs schema) and the
 # pgcrypto extension; this service only runs after `config` is already healthy (compose.init.yml),
 # so this loop is a short safeguard, not the primary wait.
@@ -122,7 +122,7 @@ unset _role_len
 # before evaluating AND short-circuiting, so it errors instead of returning false.
 # ------------------------------------------------------------------------------------------------
 
-wait_for_cms_tables() {
+wait_for_CONFIGURATION_SERVICE_tables() {
     _wait_attempts=0
     _wait_max_attempts=30
     _wait_interval_seconds=2
@@ -133,7 +133,7 @@ SELECT (to_regclass('dmscs."OpenIddictApplication"') IS NOT NULL
 SQL
 )
         if [ "$_wait_result" = "t" ]; then
-            log "$STEP_WAIT" "CMS OpenIddict tables present"
+            log "$STEP_WAIT" "CS OpenIddict tables present"
             return 0
         fi
         _wait_attempts=$((_wait_attempts + 1))
@@ -147,7 +147,7 @@ SQL
     done
 }
 
-wait_for_cms_tables
+wait_for_CONFIGURATION_SERVICE_tables
 
 # ------------------------------------------------------------------------------------------------
 # Step c: the OpenIddict signing key, if no active row exists yet.
@@ -160,7 +160,7 @@ wait_for_cms_tables
 # hash_with_salt <secret> <salt-hex> <salt-file> -> base64 secret hash on stdout (ASP.NET Identity
 # v3 format: 0x01, int32 LE 16, the 16-byte salt, then a 32-byte PBKDF2-HMAC-SHA256 subkey).
 # HASH_ITERATIONS must equal IdentitySettings__HashingIterations in compose.core.yml (see the
-# comment there); a mismatch produces a hash CMS's own hasher would never have produced, and every
+# comment there); a mismatch produces a hash CS's own hasher would never have produced, and every
 # token request for that client fails.
 hash_with_salt() {
     _hws_secret="$1"
@@ -209,7 +209,7 @@ SQL
     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -quiet -out "$_key_priv_pem" \
         || die "$STEP_KEY" "openssl genpkey failed"
     # Plain `genpkey -outform DER` would still be PKCS#1; the -topk8 step below is what makes it
-    # PKCS#8, which is the only format CMS's key loader accepts (PKCS#1 makes every
+    # PKCS#8, which is the only format CS's key loader accepts (PKCS#1 makes every
     # token request fail with a 500, "ASN1 corrupted data ... 'Universal' class value '2' ... '16'").
     openssl pkcs8 -topk8 -nocrypt -in "$_key_priv_pem" -outform DER -out "$_key_priv_der" \
         || die "$STEP_KEY" "openssl pkcs8 (PKCS#1 -> PKCS#8) conversion failed"
@@ -230,7 +230,7 @@ SQL
     _key_kid=$(printf '%s' "$_key_guid" | base64 -w0)
 
     kit_psql -v kid="$_key_kid" -v pub="$_key_pub_b64" -v priv="$_key_priv_b64" \
-        -v enc="$CMS_IDENTITY_ENCRYPTION_KEY" -f - <<'SQL'
+        -v enc="$CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY" -f - <<'SQL'
 INSERT INTO dmscs."OpenIddictKey" ("KeyId", "PublicKey", "PrivateKey", "IsActive")
 VALUES (:'kid', decode(:'pub', 'base64'), pgp_sym_encrypt(:'priv', :'enc'), TRUE);
 SQL
@@ -240,7 +240,7 @@ SQL
 ensure_signing_key
 
 # ------------------------------------------------------------------------------------------------
-# Step d/e/f: the three CMS system clients. Each is created if missing, and reconciled if present:
+# Step d/e/f: the three CS system clients. Each is created if missing, and reconciled if present:
 # the stored ClientSecret is decoded and compared against a hash re-derived from .env with the
 # stored salt (upstream ASP.NET Identity v3 layout: 0x01, int32 LE 16, 16-byte salt, 32-byte
 # subkey -- 53 bytes total). A mismatch or a malformed stored value gets a fresh hash; a match is
@@ -370,16 +370,16 @@ COMMIT;
 SQL
 }
 
-ensure_client DmsConfigurationService "DMS Configuration Service" \
-    CMS_SERVICE_CLIENT_SECRET edfi_admin_api/full_access
-ensure_client CMSReadOnlyAccess "CMS ReadOnly Access" \
-    CMS_READONLY_CLIENT_SECRET edfi_admin_api/readonly_access
+ensure_client DmsConfigurationService "Ed-Fi API Configuration Service" \
+    CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET edfi_admin_api/full_access
+ensure_client CMSReadOnlyAccess "CS ReadOnly Access" \
+    CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET edfi_admin_api/readonly_access
 ensure_client PilotKitAdmin "Pilot Kit Admin" \
-    CMS_ADMIN_CLIENT_SECRET edfi_admin_api/full_access
+    CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET edfi_admin_api/full_access
 
 # ------------------------------------------------------------------------------------------------
-# Step g: grant PilotKitAdmin -- and only PilotKitAdmin -- the role that DMS's claim-set reload
-# endpoint requires (FR-CLAIM-14). A participant integration credential (a CMS /v3/
+# Step g: grant PilotKitAdmin -- and only PilotKitAdmin -- the role that Ed-Fi API v8's claim-set reload
+# endpoint requires (FR-CLAIM-14). A participant integration credential (a CS /v3/
 # applications vendor client) only ever gets IdentitySettings__ClientRole (dms-client), never this
 # role, so it cannot call the endpoint. Idempotent, same ON CONFLICT pattern as the dms-client/
 # cms-client grant inside ensure_client above.
@@ -408,12 +408,12 @@ SQL
 ensure_extra_role PilotKitAdmin "$DMS_CLAIMSET_RELOAD_ROLE"
 
 # ------------------------------------------------------------------------------------------------
-# Step h: self-check. Requests a token for PilotKitAdmin and confirms CMS actually accepts the
+# Step h: self-check. Requests a token for PilotKitAdmin and confirms CS actually accepts the
 # signing key and the hash this script just wrote.
 # ------------------------------------------------------------------------------------------------
 
 self_check() {
-    cms_token "$STEP_CHECK" PilotKitAdmin "$CMS_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access >/dev/null
+    CONFIGURATION_SERVICE_token "$STEP_CHECK" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access >/dev/null
     log "$STEP_CHECK" "PilotKitAdmin token request succeeded"
 }
 

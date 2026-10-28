@@ -4,14 +4,14 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-datastore: registers the kit's PostgreSQL data store with CMS. Without one, DMS
-# exits in a restart loop at startup ("DMS cannot start without proper data store
+# init-datastore: registers the kit's PostgreSQL data store with CS. Without one, Ed-Fi API v8
+# exits in a restart loop at startup ("Ed-Fi API v8 cannot start without proper data store
 # configuration"). Runs after init-identity (tools image), which is where the PilotKitAdmin client
 # this script authenticates as gets created.
 #
 # Idempotent by name: GET /v3/dataStores first, and only POST if "Pilot Kit" isn't already there --
 # there is no upsert endpoint. Registering again with a changed POSTGRES_PASSWORD does *not* update
-# an existing data store: CMS stores the connection string encrypted, so a rotated password needs a
+# an existing data store: CS stores the connection string encrypted, so a rotated password needs a
 # reset (docker compose down -v) rather than a re-run of this script.
 
 set -eu
@@ -29,7 +29,7 @@ STEP_REGISTER=register
 DATASTORE_NAME="Pilot Kit"
 
 require_env "$STEP_ENV" \
-    CMS_ADMIN_CLIENT_SECRET CONFIG_BASE_URL \
+    CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET CONFIG_BASE_URL \
     POSTGRES_PASSWORD POSTGRES_DB_NAME DMS_DB_MAX_POOL_SIZE
 
 # A private scratch directory: the GET/POST response bodies and the request body (which carries
@@ -40,10 +40,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-TOKEN=$(cms_token "$STEP_TOKEN" PilotKitAdmin "$CMS_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
+TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
 
 # ------------------------------------------------------------------------------------------------
-# Step a: does a data store named "Pilot Kit" already exist? GET-before-POST, since CMS has no
+# Step a: does a data store named "Pilot Kit" already exist? GET-before-POST, since CS has no
 # upsert for this resource.
 # ------------------------------------------------------------------------------------------------
 
@@ -69,7 +69,7 @@ log "$STEP_CHECK" "data store '$DATASTORE_NAME' not found, registering"
 
 # ------------------------------------------------------------------------------------------------
 # Step b: register it. `provider` must be lowercase ("postgresql", not "PostgreSQL").
-# The pool size feeds Npgsql's "Maximum Pool Size", not the CMS pool sizing.
+# The pool size feeds Npgsql's "Maximum Pool Size", not the CS pool sizing.
 # ------------------------------------------------------------------------------------------------
 
 CONNECTION_STRING="host=db;port=5432;username=postgres;password=${POSTGRES_PASSWORD};"

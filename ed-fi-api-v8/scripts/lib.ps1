@@ -241,7 +241,7 @@ function Set-KitEnvValue {
 # Secret generation. LOCAL DEVELOPMENT ONLY -- see .env.example's header. Every generated value has
 # at least one lowercase letter, one uppercase letter, one digit, and one special character, which
 # satisfies both the 32-128 character client-secret rule and the exactly-32-character
-# CMS_DATABASE_ENCRYPTION_KEY rule (call with the exact length wanted). Uses .NET's RNG (no host
+# CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY rule (call with the exact length wanted). Uses .NET's RNG (no host
 # .NET SDK is required -- RandomNumberGenerator ships in the PowerShell runtime itself).
 # ------------------------------------------------------------------------------------------------
 
@@ -249,10 +249,10 @@ $script:KitLower = 'abcdefghijklmnopqrstuvwxyz'
 $script:KitUpper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 $script:KitDigit = '0123456789'
 # No '$': Compose interpolates it in .env values, which would corrupt the secret.
-# No '&' or '=': CMS_ADMIN_CLIENT_SECRET (and the other CMS_*_CLIENT_SECRET values generated from
+# No '&' or '=': CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET (and the other CONFIGURATION_SERVICE_*_CLIENT_SECRET values generated from
 # this pool) is embedded unescaped into application/x-www-form-urlencoded request bodies built by
 # naive string concatenation -- see http/claimset-test.http's
-# "grant_type=client_credentials&client_id=...&client_secret={{CMS_ADMIN_CLIENT_SECRET}}&scope=..."
+# "grant_type=client_credentials&client_id=...&client_secret={{CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET}}&scope=..."
 # line, where the VS Code REST Client extension substitutes the placeholder as literal text without
 # urlencoding it. A literal '&' in the secret would be read as a field separator, and a literal '='
 # would make everything after it in that chunk part of the wrong field, corrupting the request.
@@ -262,8 +262,8 @@ $script:KitSpecialFull = '!@#^*()-_[]{}:;,.?'
 # Same set without ';'. POSTGRES_PASSWORD is embedded, unescaped, into semicolon-delimited
 # ADO.NET/Npgsql-style connection strings elsewhere in the kit (compose.core.yml
 # DatabaseSettings__DatabaseConnection and DATABASE_CONNECTION_STRING_ADMIN, and the connection
-# string init/datastore.sh registers with CMS); a literal ';' in the password would truncate or
-# corrupt those. PGADMIN_DEFAULT_PASSWORD and CMS_DATABASE_ENCRYPTION_KEY use the same safe pool
+# string init/datastore.sh registers with CS); a literal ';' in the password would truncate or
+# corrupt those. PGADMIN_DEFAULT_PASSWORD and CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY use the same safe pool
 # out of caution, even though neither is known to need it today.
 $script:KitSpecialSafe = '!@#^*()-_[]{}:,.?'
 
@@ -380,13 +380,13 @@ function Initialize-KitEnvFile {
     }
 
     if (-not (Test-Path -LiteralPath $envFile)) {
-        # New secrets would not match an existing database or the CMS state encrypted with the old
+        # New secrets would not match an existing database or the CS state encrypted with the old
         # keys, so refuse rather than generate them. Nothing is deleted here.
         $volumes = @(Get-KitExistingVolumes)
         if ($volumes.Count -gt 0) {
             Stop-KitWithError (".env is missing, but this kit's Docker volumes already exist: " +
                 ($volumes -join ', ') + '. Freshly generated secrets would not match the existing ' +
-                "database and encrypted CMS state. Restore the original .env into $script:KitDir, " +
+                "database and encrypted CS state. Restore the original .env into $script:KitDir, " +
                 'or run ./reset.ps1 to DELETE that data and start fresh.')
         }
         Write-KitLog 'No .env found. Creating one from .env.example with freshly generated local secrets.'
@@ -394,11 +394,11 @@ function Initialize-KitEnvFile {
         # Generate every secret before touching .env, so a failure can't leave a half-written file.
         $secrets = [ordered]@{
             POSTGRES_PASSWORD           = New-KitSecret -Length 32 -Pool safe
-            CMS_SERVICE_CLIENT_SECRET   = New-KitSecret -Length 48 -Pool full
-            CMS_READONLY_CLIENT_SECRET  = New-KitSecret -Length 48 -Pool full
-            CMS_ADMIN_CLIENT_SECRET     = New-KitSecret -Length 48 -Pool full
-            CMS_DATABASE_ENCRYPTION_KEY = New-KitSecret -Length 32 -Pool safe
-            CMS_IDENTITY_ENCRYPTION_KEY = New-KitBase64Key -Bytes 32
+            CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET   = New-KitSecret -Length 48 -Pool full
+            CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET  = New-KitSecret -Length 48 -Pool full
+            CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET     = New-KitSecret -Length 48 -Pool full
+            CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY = New-KitSecret -Length 32 -Pool safe
+            CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY = New-KitBase64Key -Bytes 32
             PGADMIN_DEFAULT_PASSWORD    = New-KitSecret -Length 32 -Pool safe
         }
 
@@ -415,9 +415,9 @@ function Initialize-KitEnvFile {
             Set-KitEnvValue -Name $name -Value $secrets[$name]
         }
 
-        Write-KitLog 'Generated local secrets for POSTGRES_PASSWORD, CMS_SERVICE_CLIENT_SECRET,'
-        Write-KitLog 'CMS_READONLY_CLIENT_SECRET, CMS_ADMIN_CLIENT_SECRET, CMS_DATABASE_ENCRYPTION_KEY,'
-        Write-KitLog 'CMS_IDENTITY_ENCRYPTION_KEY, and PGADMIN_DEFAULT_PASSWORD.'
+        Write-KitLog 'Generated local secrets for POSTGRES_PASSWORD, CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET,'
+        Write-KitLog 'CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET, CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET, CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY,'
+        Write-KitLog 'CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY, and PGADMIN_DEFAULT_PASSWORD.'
         Write-KitLog "Values are never printed; see $envFile if you need one of them."
         return
     }
@@ -752,10 +752,10 @@ function Show-KitUpFailure {
 function Show-KitUrls {
     $origin = Get-KitEnvValue -Name 'PUBLIC_ORIGIN' -Default 'https://localhost'
     $dmsBase = Get-KitEnvValue -Name 'DMS_PATH_BASE' -Default 'api'
-    $cmsBase = Get-KitEnvValue -Name 'CMS_PATH_BASE' -Default 'config'
+    $cmsBase = Get-KitEnvValue -Name 'CONFIGURATION_SERVICE_PATH_BASE' -Default 'config'
     Write-KitLog "  API / Discovery:  $origin/$dmsBase"
     Write-KitLog "  Token endpoint:   $origin/$dmsBase/oauth/token"
-    Write-KitLog "  CMS config:       $origin/$cmsBase"
+    Write-KitLog "  CS config:       $origin/$cmsBase"
     Write-KitLog "  Swagger UI:       $origin/swagger"
     Write-KitLog "  PGAdmin:          $origin/pgadmin"
 }

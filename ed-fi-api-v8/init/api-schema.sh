@@ -4,14 +4,14 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# init-api-schema: stages the DS 5.2 ApiSchema files DMS needs into the api-schema volume,
-# sourced from the pinned DMS image's own /app/ApiSchema rather than the NuGet package -- no network access, and it always matches the DMS
+# init-api-schema: stages the DS 5.2 ApiSchema files Ed-Fi API v8 needs into the api-schema volume,
+# sourced from the pinned Ed-Fi API v8 image's own /app/ApiSchema rather than the NuGet package -- no network access, and it always matches the Ed-Fi API v8
 # build exactly. Runs as root (image: ${DMS_IMAGE}; a fresh named volume is root-owned), with the volume mounted at /stage
 # rather than /app/ApiSchema so Docker's copy-up never fires: an empty volume first
 # mounted at the image's own /app/ApiSchema would be filled with the image's core+TPDM content
 # before this script ever got a chance to run.
 #
-# The DMS image's base OS and shell utilities aren't confirmed beyond jq, so every
+# The Ed-Fi API v8 image's base OS and shell utilities aren't confirmed beyond jq, so every
 # external tool this script uses is checked with `command -v` up front, and lib.sh (also plain sh)
 # is sourced only for log/die/require_env.
 #
@@ -160,7 +160,7 @@ clear_dest() {
 }
 
 # ------------------------------------------------------------------------------------------------
-# Step d: verify the source (the DMS image's own /app/ApiSchema) before touching $DEST at all, so a
+# Step d: verify the source (the Ed-Fi API v8 image's own /app/ApiSchema) before touching $DEST at all, so a
 # tampered or unexpected image is caught without first destroying whatever was already staged.
 # ------------------------------------------------------------------------------------------------
 
@@ -177,7 +177,7 @@ verify_source() {
     if [ "$_vs_hash" != "$API_SCHEMA_SHA256" ]; then
         die "$STEP_VERIFY" \
             "source ApiSchema.json SHA-256 $_vs_hash does not match the pinned API_SCHEMA_SHA256" \
-            "($API_SCHEMA_SHA256) -- refusing to stage a tampered or unexpected DMS image"
+            "($API_SCHEMA_SHA256) -- refusing to stage a tampered or unexpected Ed-Fi API v8 image"
     fi
     log "$STEP_VERIFY" "source ApiSchema.json SHA-256 verified against the pin"
 }
@@ -211,7 +211,7 @@ else
     clear_dest
     stage
     dest_matches_expected || die "$STEP_DONE" "staged content still doesn't match the expected layout"
-    # DMS runs as a non-root user; a fresh volume mounted here is root-owned (see the header comment).
+    # Ed-Fi API v8 runs as a non-root user; a fresh volume mounted here is root-owned (see the header comment).
     chmod -R a+rX "$DEST"
     log "$STEP_DONE" "restaged and verified"
 fi

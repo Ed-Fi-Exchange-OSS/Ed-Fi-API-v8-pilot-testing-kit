@@ -24,7 +24,7 @@ Usage: ./new-credential.sh --shape sis|assessment|warehouse --name <name>
                 to stateEducationAgency, localEducationAgency, and school), assessment -> AssessmentVendor,
                 warehouse -> DataWarehouse.
   --name        Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
-  --claim-set   Optional override of the claim set implied by --shape. Must already exist in CMS.
+  --claim-set   Optional override of the claim set implied by --shape. Must already exist in CS.
   --edorg-ids   Optional comma-separated education organization ids. Defaults depend on --shape and
                 the loaded template: the bootstrapped SEA on minimal, the sample LEA on populated, or
                 none for warehouse credentials.
@@ -38,11 +38,11 @@ Usage: ./new-credential.sh --shape sis|assessment|warehouse --name <name>
 `new-credential.ps1` accepts the same options as named PowerShell parameters: `-Shape`, `-Name`,
 `-ClaimSet`, `-EdOrgIds`, `-NamespacePrefix`, `-Help`.
 
-It registers a new CMS vendor and application, prints the resulting key and secret exactly once (they
+It registers a new CS vendor and application, prints the resulting key and secret exactly once (they
 cannot be recovered afterward), saves them to `.runtime/credentials/<name>.json`, and makes one
 authorized request with the new credential before reporting success -- so a clean run already proves
 the credential works, with no further configuration. Reusing an existing `--name` fails without
-touching the existing registration (FR-CRED-3). If CMS isn't reachable yet, it fails with a message
+touching the existing registration (FR-CRED-3). If CS isn't reachable yet, it fails with a message
 telling you to run `start` first (FR-CRED-6).
 
 ### Education organization scoping defaults
@@ -86,7 +86,7 @@ schools), scoping a SIS or assessment credential to just the SEA or just the LEA
 
 ### Namespace prefixes
 
-`new-credential` registers each credential's CMS vendor with default namespace prefixes, chosen by
+`new-credential` registers each credential's CS vendor with default namespace prefixes, chosen by
 the template actually loaded, not by `--shape`:
 
 | Template actually loaded | Namespace prefixes |
@@ -118,8 +118,8 @@ that starts with an existing prefix, such as `uri://ed-fi.org/MyVendor` or
 `uri://gbisd.edu/MyVendor`.
 
 The same applies to a `studentAssessment` that references an assessment. If the referenced
-assessment is in a disallowed namespace, DMS currently returns `500` rather than `403`; see
-[Known limitations](../README.md#known-limitations) (upstream issue DMS-1596).
+assessment is in a disallowed namespace, Ed-Fi API v8 currently returns `500` rather than `403`; see
+[Known limitations](../README.md#known-limitations) (upstream issue Ed-Fi API v8-1596).
 
 ## Claim sets the kit uses
 
@@ -136,7 +136,7 @@ The kit never modifies a standard claim set -- `DataWarehouse` and `SISVendorEdO
 ## The Data Warehouse claim set
 
 No standard Ed-Fi claim set grants broad read access, so `bootstrap/claimsets/DataWarehouse.json`
-defines one. It's the exact request body `POST /v3/claimSets/import` uses to create it in CMS,
+defines one. It's the exact request body `POST /v3/claimSets/import` uses to create it in CS,
 reviewable in version control (FR-CLAIM-9):
 
 - `Read` and `ReadChanges` -- both with the `NoFurtherAuthorizationRequired` authorization strategy,
@@ -157,9 +157,9 @@ specifically interested in whether this shape -- read-everything, unscoped by ed
 absence from the platform is itself a finding worth confirming. See
 [Feedback](../README.md#feedback) in the main README.
 
-It's provisioned once, before DMS starts on a clean start, so a fresh `DataWarehouse` credential's
-first request returns `200` immediately rather than the `500` you'd see from DMS's claim-set cache if
-a claim set were imported while DMS was already running (see
+It's provisioned once, before Ed-Fi API v8 starts on a clean start, so a fresh `DataWarehouse` credential's
+first request returns `200` immediately rather than the `500` you'd see from Ed-Fi API v8's claim-set cache if
+a claim set were imported while Ed-Fi API v8 was already running (see
 [Applying a claim set change immediately](../README.md#applying-a-claim-set-change-immediately)).
 
 ## The bootstrap credential: file format and lifecycle
@@ -191,7 +191,7 @@ string concatenation. Credential files from `new-credential` carry the same two 
 It's scoped to the SEA (`educationOrganizationIds: [99]`), which -- as noted above -- is enough to
 reach the whole baseline hierarchy beneath it. Re-running `start` or `./bootstrap.sh` reuses this
 credential if it still authenticates, and only recreates it (rotating the secret) if the file is
-missing, invalid, or the CMS application behind it no longer exists.
+missing, invalid, or the CS application behind it no longer exists.
 
 ### Rotating or removing it
 
@@ -201,7 +201,7 @@ There's no dedicated kit script for this yet. Two options:
   `./reset.sh` / `.ps1` (see [Stopping, resetting, and switching
   templates](../README.md#stopping-resetting-and-switching-templates)). This is the fully verified
   path.
-- **Delete just the CMS application record**, using the `PilotKitAdmin` admin token from the claim
+- **Delete just the CS application record**, using the `PilotKitAdmin` admin token from the claim
   set reload flow (see [Applying a claim set change
   immediately](../README.md#applying-a-claim-set-change-immediately)):
 
@@ -212,7 +212,7 @@ There's no dedicated kit script for this yet. Two options:
 
   using the `applicationId` from `bootstrap-credentials.json` above. Running `./bootstrap.sh` /
   `.ps1` afterward recreates a fresh application and credential (the secret rotates; the vendor
-  record itself is left in place). **This path hasn't been verified against a running CMS** -- the
+  record itself is left in place). **This path hasn't been verified against a running CS** -- the
   kit's own code that calls it notes the same -- so if it doesn't behave as expected, fall back to
   the full reset.
 

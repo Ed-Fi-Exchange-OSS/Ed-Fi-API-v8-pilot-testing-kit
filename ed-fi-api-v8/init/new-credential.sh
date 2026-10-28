@@ -4,7 +4,7 @@
 # The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
 # See the LICENSE and NOTICES files in the project root for more information.
 
-# new-credential: registers a fresh vendor and application in CMS for one participant
+# new-credential: registers a fresh vendor and application in CS for one participant
 # integration credential, and writes /runtime/credentials/<name>.json. Unlike init-bootstrap's single
 # ADMIN credential, this runs once per participant credential, on demand, via the host wrappers
 # (`new-credential.sh`/`.ps1`) or directly as
@@ -28,7 +28,7 @@
 # rejected name leaves nothing behind.
 #
 # After creating the application, the credentials file is written first (so the secret, shown only
-# once by CMS, is never lost even if the verification step below fails), then a DMS token and one
+# once by CS, is never lost even if the verification step below fails), then a Ed-Fi API v8 token and one
 # shape-appropriate GET are attempted through the same NGINX ingress a participant uses, proving the
 # credential works with no extra configuration (FR-CRED-1). A 401 is retried a few times with backoff
 # (none has been seen, but this keeps the door open for a slow first request); any other failure leaves the
@@ -66,7 +66,7 @@ Usage: new-credential.sh --shape sis|assessment|warehouse --name <name>
                 to stateEducationAgency, localEducationAgency, and school), assessment -> AssessmentVendor,
                 warehouse -> DataWarehouse.
   --name        Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
-  --claim-set   Optional override of the claim set implied by --shape. Must already exist in CMS.
+  --claim-set   Optional override of the claim set implied by --shape. Must already exist in CS.
   --edorg-ids   Optional comma-separated education organization ids. Defaults depend on --shape and
                 the loaded template: the bootstrapped SEA on minimal, the sample LEA on populated, or
                 none for warehouse credentials.
@@ -157,7 +157,7 @@ if [ -n "$EDORG_IDS_ARG" ]; then
 fi
 
 # --namespace-prefix: a comma-separated list; every entry non-empty, no whitespace, and a scheme
-# followed by '://' (uri://..., http(s)://...). The joined string is stored in one CMS vendor field,
+# followed by '://' (uri://..., http(s)://...). The joined string is stored in one CS vendor field,
 # so it is capped at 255 characters (the widest ODS-style column; kept conservative, unverified).
 EXTRA_PREFIXES=""
 if [ -n "$NAMESPACE_PREFIX_ARG" ]; then
@@ -203,7 +203,7 @@ if [ -n "$NAMESPACE_PREFIX_ARG" ]; then
 fi
 
 require_env "$STEP_ARGS" \
-    CMS_ADMIN_CLIENT_SECRET CONFIG_BASE_URL DMS_BASE_URL \
+    CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET CONFIG_BASE_URL DMS_BASE_URL \
     INGRESS_BASE_URL INGRESS_CA_FILE PUBLIC_ORIGIN DMS_PATH_BASE \
     POSTGRES_PASSWORD POSTGRES_DB_NAME
 
@@ -220,20 +220,20 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ------------------------------------------------------------------------------------------------
-# Step b: is CMS even reachable? A clear, specific message here beats a token-request die further
+# Step b: is CS even reachable? A clear, specific message here beats a token-request die further
 # down for the "forgot to start the stack" case (FR-CRED-6).
 # ------------------------------------------------------------------------------------------------
 
-check_cms_ready() {
+check_CONFIGURATION_SERVICE_ready() {
     if ! kit_curl --connect-timeout 3 --max-time 5 -o /dev/null \
         --request POST "${CONFIG_BASE_URL}/connect/token" >/dev/null 2>&1; then
-        die "$STEP_READY" "CMS is not reachable: run ./start.sh (or start.ps1) first"
+        die "$STEP_READY" "CS is not reachable: run ./start.sh (or start.ps1) first"
     fi
 }
 
-check_cms_ready
+check_CONFIGURATION_SERVICE_ready
 
-ADMIN_TOKEN=$(cms_token "$STEP_TOKEN" PilotKitAdmin "$CMS_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
+ADMIN_TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
 
 # ------------------------------------------------------------------------------------------------
 # Step c: uniqueness (FR-CRED-3). Checked, and only checked, before anything is created: an existing
@@ -241,10 +241,10 @@ ADMIN_TOKEN=$(cms_token "$STEP_TOKEN" PilotKitAdmin "$CMS_ADMIN_CLIENT_SECRET" e
 # ------------------------------------------------------------------------------------------------
 
 check_uniqueness() {
-    _cu_ids=$(cms_find_application_ids_by_name "$STEP_UNIQUE" "$ADMIN_TOKEN" "$NAME")
+    _cu_ids=$(CONFIGURATION_SERVICE_find_application_ids_by_name "$STEP_UNIQUE" "$ADMIN_TOKEN" "$NAME")
     if [ -n "$_cu_ids" ]; then
         die "$STEP_UNIQUE" \
-            "an application named '$NAME' already exists in CMS (id(s): $(printf '%s' "$_cu_ids" | tr '\n' ' ' | sed 's/ *$//')). Choose a different --name, or remove the existing application in CMS first."
+            "an application named '$NAME' already exists in CS (id(s): $(printf '%s' "$_cu_ids" | tr '\n' ' ' | sed 's/ *$//')). Choose a different --name, or remove the existing application in CS first."
     fi
     if [ -f "$CRED_FILE" ]; then
         die "$STEP_UNIQUE" \
@@ -285,7 +285,7 @@ determine_template
 
 # ------------------------------------------------------------------------------------------------
 # Step e: the claim set. Defaults from --shape, overridable with --claim-set; either way it must
-# already exist in CMS (FR-CLAIM-10).
+# already exist in CS (FR-CLAIM-10).
 # ------------------------------------------------------------------------------------------------
 
 case "$SHAPE" in
@@ -296,20 +296,20 @@ esac
 CLAIM_SET="${CLAIM_SET_ARG:-$DEFAULT_CLAIM_SET}"
 
 validate_claim_set() {
-    cms_request "$STEP_CLAIMSET" GET "${CONFIG_BASE_URL}/v3/claimSets?limit=500" "$ADMIN_TOKEN"
-    if [ "$CMS_REQUEST_STATUS" != "200" ]; then
+    CONFIGURATION_SERVICE_request "$STEP_CLAIMSET" GET "${CONFIG_BASE_URL}/v3/claimSets?limit=500" "$ADMIN_TOKEN"
+    if [ "$CONFIGURATION_SERVICE_REQUEST_STATUS" != "200" ]; then
         die "$STEP_CLAIMSET" \
-            "GET /v3/claimSets returned HTTP $CMS_REQUEST_STATUS: $(cat "$CMS_REQUEST_BODY_FILE")"
+            "GET /v3/claimSets returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS: $(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
     fi
     _vcs_found=$(jq -r --arg n "$CLAIM_SET" 'map(select(.claimSetName == $n)) | length' \
-        "$CMS_REQUEST_BODY_FILE")
+        "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
     if [ "$_vcs_found" = "0" ]; then
-        _vcs_valid=$(jq -r '[.[].claimSetName] | sort | join(", ")' "$CMS_REQUEST_BODY_FILE")
-        rm -f "$CMS_REQUEST_BODY_FILE"
+        _vcs_valid=$(jq -r '[.[].claimSetName] | sort | join(", ")' "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
+        rm -f "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
         die "$STEP_CLAIMSET" \
-            "claim set '$CLAIM_SET' does not exist in CMS. Valid claim sets: $_vcs_valid"
+            "claim set '$CLAIM_SET' does not exist in CS. Valid claim sets: $_vcs_valid"
     fi
-    rm -f "$CMS_REQUEST_BODY_FILE"
+    rm -f "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
     log "$STEP_CLAIMSET" "using claim set '$CLAIM_SET'"
 }
 
@@ -358,7 +358,7 @@ else
 fi
 
 # ------------------------------------------------------------------------------------------------
-# Step f2: discover the data API root from DMS's Discovery document (urls.dataManagementApi), for the
+# Step f2: discover the data API root from Ed-Fi API v8's Discovery document (urls.dataManagementApi), for the
 # credential file's dataApiBaseUrl. Done here, before the vendor and application exist, so that a
 # failure leaves nothing behind and the one-time secret can never be minted without being saved.
 # ------------------------------------------------------------------------------------------------
@@ -369,7 +369,7 @@ log "$STEP_DISCOVERY" "dataApiBaseUrl: $DATA_API_BASE_URL (from Discovery urls.d
 
 # ------------------------------------------------------------------------------------------------
 # Step g: one vendor per credential, named after --name (parses its id from the
-# Location header via cms_ensure_vendor). uri://gbisd.edu is added on the populated template so
+# Location header via CONFIGURATION_SERVICE_ensure_vendor). uri://gbisd.edu is added on the populated template so
 # writes against the sample data's namespace succeed too.
 # ------------------------------------------------------------------------------------------------
 
@@ -398,11 +398,11 @@ else
     log "$STEP_VENDOR" "namespace prefixes: $NAMESPACE_PREFIXES (default for the $TEMPLATE template)"
 fi
 
-VENDOR_ID=$(cms_ensure_vendor "$STEP_VENDOR" "$ADMIN_TOKEN" "$NAME" \
+VENDOR_ID=$(CONFIGURATION_SERVICE_ensure_vendor "$STEP_VENDOR" "$ADMIN_TOKEN" "$NAME" \
     "Pilot Kit Automation" "pilot-kit@example.com" "$NAMESPACE_PREFIXES")
 log "$STEP_VENDOR" "vendor '$NAME' id=$VENDOR_ID"
 
-DATASTORE_ID=$(cms_find_datastore_id "$STEP_APP" "$ADMIN_TOKEN" "Pilot Kit")
+DATASTORE_ID=$(CONFIGURATION_SERVICE_find_datastore_id "$STEP_APP" "$ADMIN_TOKEN" "Pilot Kit")
 
 APP_BODY=$(jq -n \
     --argjson vendorId "$VENDOR_ID" \
@@ -412,15 +412,15 @@ APP_BODY=$(jq -n \
     --argjson educationOrganizationIds "$EDORG_IDS_JSON" \
     '{vendorId: $vendorId, applicationName: $applicationName, claimSetName: $claimSetName,
       educationOrganizationIds: $educationOrganizationIds, dataStoreIds: [$dataStoreId]}')
-cms_create_application "$STEP_APP" "$ADMIN_TOKEN" "$APP_BODY"
+CONFIGURATION_SERVICE_create_application "$STEP_APP" "$ADMIN_TOKEN" "$APP_BODY"
 log "$STEP_APP" \
-    "created application '$NAME' id=$CMS_APPLICATION_ID claimSetName=$CLAIM_SET" \
+    "created application '$NAME' id=$CONFIGURATION_SERVICE_APPLICATION_ID claimSetName=$CLAIM_SET" \
     "educationOrganizationIds=$EDORG_IDS_JSON (secret not logged)"
 
 # ------------------------------------------------------------------------------------------------
 # Step h: write /runtime/credentials/<name>.json before verifying anything, mode 600, atomically, and
 # owned like init/bootstrap.sh writes bootstrap-credentials.json -- so the secret (shown only once by
-# CMS) is captured even if the verification GET below fails.
+# CS) is captured even if the verification GET below fails.
 # ------------------------------------------------------------------------------------------------
 
 TOKEN_URL="${PUBLIC_ORIGIN}/${DMS_PATH_BASE}/oauth/token"
@@ -435,7 +435,7 @@ write_credentials_file() {
     _wcf_owner=$(stat -c '%u:%g' "$RUNTIME_DIR") || die "$STEP_WRITE" "could not stat $RUNTIME_DIR"
 
     _wcf_created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    _wcf_note="This secret cannot be recovered from CMS after creation; it was shown once, on stdout, \
+    _wcf_note="This secret cannot be recovered from CS after creation; it was shown once, on stdout, \
 when this credential was created. If it is lost, run new-credential again with a different --name."
 
     _wcf_tmp=$(mktemp "$CRED_DIR/.$NAME.XXXXXX") \
@@ -445,12 +445,12 @@ when this credential was created. If it is lost, run new-credential again with a
         --arg name "$NAME" \
         --arg shape "$SHAPE" \
         --arg claimSetName "$CLAIM_SET" \
-        --arg key "$CMS_APPLICATION_KEY" \
-        --arg secret "$CMS_APPLICATION_SECRET" \
+        --arg key "$CONFIGURATION_SERVICE_APPLICATION_KEY" \
+        --arg secret "$CONFIGURATION_SERVICE_APPLICATION_SECRET" \
         --argjson educationOrganizationIds "$EDORG_IDS_JSON" \
         --arg namespacePrefixes "$NAMESPACE_PREFIXES" \
         --arg vendorName "$NAME" \
-        --argjson applicationId "$CMS_APPLICATION_ID" \
+        --argjson applicationId "$CONFIGURATION_SERVICE_APPLICATION_ID" \
         --arg tokenUrl "$TOKEN_URL" \
         --arg apiBaseUrl "$API_BASE_URL" \
         --arg dataApiBaseUrl "$DATA_API_BASE_URL" \
@@ -492,7 +492,7 @@ esac
 VERIFY_URL="${INGRESS_BASE_URL}/${DMS_PATH_BASE}${VERIFY_PATH}"
 
 verify_first_request() {
-    _vfr_token=$(dms_token "$STEP_VERIFY" "$DMS_BASE_URL" "$CMS_APPLICATION_KEY" "$CMS_APPLICATION_SECRET")
+    _vfr_token=$(dms_token "$STEP_VERIFY" "$DMS_BASE_URL" "$CONFIGURATION_SERVICE_APPLICATION_KEY" "$CONFIGURATION_SERVICE_APPLICATION_SECRET")
 
     _vfr_attempt=1
     _vfr_max=3
@@ -537,8 +537,8 @@ verify_first_request || VERIFY_OK=false
 
 printf -- '---------------------------------------------------------------\n'
 printf 'Credential "%s" created (shape=%s, claimSet=%s)\n' "$NAME" "$SHAPE" "$CLAIM_SET"
-printf 'Key:       %s\n' "$CMS_APPLICATION_KEY"
-printf 'Secret:    %s\n' "$CMS_APPLICATION_SECRET"
+printf 'Key:       %s\n' "$CONFIGURATION_SERVICE_APPLICATION_KEY"
+printf 'Secret:    %s\n' "$CONFIGURATION_SERVICE_APPLICATION_SECRET"
 printf 'Token URL: %s\n' "$TOKEN_URL"
 printf 'Data API:  %s\n' "$DATA_API_BASE_URL"
 # KIT_HOST_DIR is the kit folder's host path, passed in by the new-credential host wrapper (this runs

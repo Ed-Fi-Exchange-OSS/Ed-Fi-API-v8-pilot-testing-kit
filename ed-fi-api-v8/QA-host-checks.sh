@@ -9,7 +9,7 @@
 # and the run ends with a summary.
 #
 # Checks that edit .env back it up to .env.host-checks.bak first and restore it afterwards, including
-# on Ctrl+C. Throwaway credentials, a claim set, a vendor, and a Profile are left in CMS; `reset`
+# on Ctrl+C. Throwaway credentials, a claim set, a vendor, and a Profile are left in CS; `reset`
 # clears them. `bad-checksum` RESETS the stack (all data is lost) and leaves it on the populated
 # template.
 
@@ -72,7 +72,7 @@ code() { curl -sk -o /dev/null -w '%{http_code}' "$@"; }
 DB_NAME=$(env_get POSTGRES_DB_NAME)
 DB_NAME=${DB_NAME:-edfi_datamanagementservice}
 
-# CMS and DMS share one database.
+# CS and Ed-Fi API v8 share one database.
 psql_q() { docker compose exec -T db psql -U postgres -d "$DB_NAME" -X -tAc "$1"; }
 
 template_in_use() { psql_q 'SELECT template FROM kit.initialization ORDER BY completed_at DESC LIMIT 1' 2>/dev/null | tr -d '[:space:]'; }
@@ -86,7 +86,7 @@ dms_token() { # <key> <secret>
 boot_token() { dms_token "$(jq -r .key .runtime/bootstrap-credentials.json)" "$(jq -r .secret .runtime/bootstrap-credentials.json)"; }
 cred_token() { dms_token "$(jq -r .key ".runtime/credentials/$1.json")" "$(jq -r .secret ".runtime/credentials/$1.json")"; }
 
-cms_token_status() { # <secret> -> HTTP status of a PilotKitAdmin token request
+CONFIGURATION_SERVICE_token_status() { # <secret> -> HTTP status of a PilotKitAdmin token request
     curl -sk -o /dev/null -w '%{http_code}' "$ORIGIN/config/connect/token" \
         --data-urlencode grant_type=client_credentials --data-urlencode client_id=PilotKitAdmin \
         --data-urlencode "client_secret=$1" --data-urlencode scope=edfi_admin_api/full_access
@@ -94,7 +94,7 @@ cms_token_status() { # <secret> -> HTTP status of a PilotKitAdmin token request
 admin_token() {
     curl -sk "$ORIGIN/config/connect/token" \
         --data-urlencode grant_type=client_credentials --data-urlencode client_id=PilotKitAdmin \
-        --data-urlencode "client_secret=$(env_get CMS_ADMIN_CLIENT_SECRET)" \
+        --data-urlencode "client_secret=$(env_get CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET)" \
         --data-urlencode scope=edfi_admin_api/full_access | jq -r '.access_token // empty'
 }
 
@@ -116,7 +116,7 @@ check_discovery_https() { # T5: Discovery URLs use the public origin (FR-ROUTE-4
     fi
 }
 
-check_redirect_503() { # T5: http -> 301 https; DMS stopped -> 503 not 502 (FR-ROUTE-9)
+check_redirect_503() { # T5: http -> 301 https; Ed-Fi API v8 stopped -> 503 not 502 (FR-ROUTE-9)
     say "redirect-503"
     local r s
     # Status and Location from the raw headers; curl's %{redirect_url} came back empty on one host.
@@ -127,16 +127,16 @@ check_redirect_503() { # T5: http -> 301 https; DMS stopped -> 503 not 502 (FR-R
     docker compose stop dms >/dev/null 2>&1
     s=$(code "$ORIGIN/api")
     note "with dms stopped: $ORIGIN/api -> $s"
-    [ "$s" = 503 ] && pass dms-down-503 "503 with DMS stopped" || fail dms-down-503 "expected 503, got $s"
-    restart_kit && note "kit restarted" || fail redirect-503 "./start.sh failed while restoring DMS"
+    [ "$s" = 503 ] && pass dms-down-503 "503 with Ed-Fi API v8 stopped" || fail dms-down-503 "expected 503, got $s"
+    restart_kit && note "kit restarted" || fail redirect-503 "./start.sh failed while restoring Ed-Fi API v8"
 }
 
 check_secrets_in_logs() { # T3: no .env secret appears in any container log
     say "secrets-in-logs"
     local logs v s leaks=""
     logs=$(docker compose logs --no-color 2>&1)
-    for v in POSTGRES_PASSWORD CMS_SERVICE_CLIENT_SECRET CMS_READONLY_CLIENT_SECRET CMS_ADMIN_CLIENT_SECRET \
-        CMS_DATABASE_ENCRYPTION_KEY CMS_IDENTITY_ENCRYPTION_KEY PGADMIN_DEFAULT_PASSWORD; do
+    for v in POSTGRES_PASSWORD CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET \
+        CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY PGADMIN_DEFAULT_PASSWORD; do
         s=$(env_get "$v")
         [ -n "$s" ] || continue
         if printf '%s' "$logs" | grep -qF -- "$s"; then leaks="$leaks $v"; fi
@@ -282,7 +282,7 @@ check_sis_claimset() { # FR-CLAIM-3: SISVendorEdOrgWrite listed; sis credential 
         -d "$(jq -nc --argjson id "$sch" --argjson lea "$lea" --arg n "Host check School (updated)" "$schbody" | jq -c --arg sid "$scid" '. + {id: $sid}')" \
         "$ORIGIN/api/data/ed-fi/schools/$scid")
     [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-school-put "PUT school -> $s" || fail sis-school-put "PUT -> $s (expected 204)"
-    # Delete in reverse dependency order: DMS rejects deleting an organization that is still referenced.
+    # Delete in reverse dependency order: Ed-Fi API v8 rejects deleting an organization that is still referenced.
     s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/schools/$scid")
     [ "$s" = 204 ] || [ "$s" = 200 ] && pass sis-school-delete "DELETE school -> $s" || fail sis-school-delete "DELETE -> $s (expected 204)"
     s=$(code -X DELETE -H "Authorization: Bearer $t" "$ORIGIN/api/data/ed-fi/localEducationAgencies/$lid")
@@ -374,7 +374,7 @@ check_profiles() { # Checkpoint B / FR-FEAT-5: a Profile restricts the response
         -d "{\"vendorId\":$vid,\"applicationName\":\"hc-profile-$RUN_ID\",\"claimSetName\":\"EdFiSandbox\",\"educationOrganizationIds\":[$ed],\"dataStoreIds\":[$did],\"profileIds\":[$pid]}")
     key=$(printf '%s' "$app" | jq -r '.key // empty'); secret=$(printf '%s' "$app" | jq -r '.secret // empty')
     [ -n "$key" ] || { fail profiles "application create failed: $app"; return; }
-    note "restarting dms (a Profile created while DMS runs isn't used until it restarts)"
+    note "restarting dms (a Profile created while Ed-Fi API v8 runs isn't used until it restarts)"
     docker compose restart dms >/dev/null 2>&1 && restart_kit
     t=$(dms_token "$key" "$secret")
     body=$(curl -sk -H "Authorization: Bearer $t" -H "Accept: application/vnd.ed-fi.school.$pname.readable+json" \
@@ -393,14 +393,14 @@ check_bad_secret() { # T3/T4/FR-LIFE-9: invalid secret fails init-identity; the 
     say "bad-secret"
     local out rc
     env_backup
-    env_set CMS_ADMIN_CLIENT_SECRET short
+    env_set CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET short
     out=$(./start.sh 2>&1); rc=$?
     env_restore
-    printf '%s\n' "$out" | grep -E "FAILED|CMS_ADMIN_CLIENT_SECRET|docker compose logs" | head -n 6 | sed 's/^/    /'
+    printf '%s\n' "$out" | grep -E "FAILED|CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET|docker compose logs" | head -n 6 | sed 's/^/    /'
     [ "$rc" -ne 0 ] && pass bad-secret-exit "start exited $rc" || fail bad-secret-exit "start exited 0"
     printf '%s' "$out" | grep -q "FAILED: init-identity" && pass bad-secret-service "report names init-identity" \
         || fail bad-secret-service "report doesn't name init-identity"
-    printf '%s' "$out" | grep -q "CMS_ADMIN_CLIENT_SECRET must be" && pass bad-secret-variable "message names CMS_ADMIN_CLIENT_SECRET" \
+    printf '%s' "$out" | grep -q "CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET must be" && pass bad-secret-variable "message names CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
         || fail bad-secret-variable "message doesn't name the variable"
     restart_kit && note "restored; kit healthy" || fail bad-secret "./start.sh failed after restoring .env"
 }
@@ -408,21 +408,21 @@ check_bad_secret() { # T3/T4/FR-LIFE-9: invalid secret fails init-identity; the 
 check_secret_rotation() { # T3: changing a client secret in .env rotates only that client
     say "secret-rotation"
     local old new ro_before ro_after
-    old=$(env_get CMS_ADMIN_CLIENT_SECRET)
+    old=$(env_get CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET)
     new=$(new_secret)
     ro_before=$(psql_q "SELECT \"ClientSecret\" FROM dmscs.\"OpenIddictApplication\" WHERE \"ClientId\" = 'CMSReadOnlyAccess'" | md5sum)
     env_backup
-    env_set CMS_ADMIN_CLIENT_SECRET "$new"
+    env_set CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET "$new"
     restart_kit || fail secret-rotation "./start.sh failed with the new secret"
-    note "old secret -> $(cms_token_status "$old"), new secret -> $(cms_token_status "$new")"
-    [ "$(cms_token_status "$new")" = 200 ] && pass rotation-new-works "new secret gets a token" || fail rotation-new-works "new secret rejected"
-    [ "$(cms_token_status "$old")" != 200 ] && pass rotation-old-fails "old secret rejected" || fail rotation-old-fails "old secret still works"
+    note "old secret -> $(CONFIGURATION_SERVICE_token_status "$old"), new secret -> $(CONFIGURATION_SERVICE_token_status "$new")"
+    [ "$(CONFIGURATION_SERVICE_token_status "$new")" = 200 ] && pass rotation-new-works "new secret gets a token" || fail rotation-new-works "new secret rejected"
+    [ "$(CONFIGURATION_SERVICE_token_status "$old")" != 200 ] && pass rotation-old-fails "old secret rejected" || fail rotation-old-fails "old secret still works"
     ro_after=$(psql_q "SELECT \"ClientSecret\" FROM dmscs.\"OpenIddictApplication\" WHERE \"ClientId\" = 'CMSReadOnlyAccess'" | md5sum)
     [ "$ro_before" = "$ro_after" ] && pass rotation-others-unchanged "CMSReadOnlyAccess untouched" \
         || fail rotation-others-unchanged "CMSReadOnlyAccess hash changed"
     env_restore
-    restart_kit && [ "$(cms_token_status "$old")" = 200 ] && note "rotated back to the original secret" \
-        || fail secret-rotation "could not rotate back; check CMS_ADMIN_CLIENT_SECRET in .env"
+    restart_kit && [ "$(CONFIGURATION_SERVICE_token_status "$old")" = 200 ] && note "rotated back to the original secret" \
+        || fail secret-rotation "could not rotate back; check CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET in .env"
 }
 
 check_bad_checksum() { # T8/T9: corrupted archive fails clearly; no marker; next start retries. RESETS.

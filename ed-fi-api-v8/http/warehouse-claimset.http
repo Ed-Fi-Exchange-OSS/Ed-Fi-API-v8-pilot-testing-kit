@@ -4,8 +4,8 @@
 # See the LICENSE and NOTICES files in the project root for more information.
 
 # Creates and tests client credentials using the warehouse claimset.
-# Reads CMS_ADMIN_CLIENT_SECRET from the git-ignored http/.env (copy http/.env.example); the value
-# is the CMS_ADMIN_CLIENT_SECRET line in the kit's own .env.
+# Reads CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET from the git-ignored http/.env (copy http/.env.example); the value
+# is the CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET line in the kit's own .env.
 
 @baseUrlApi = https://localhost/api
 @baseUrlConfig = https://localhost/config
@@ -14,7 +14,7 @@
 # request before the data request; REST Client errors on {{discovery.response...}} until it has been
 # sent once in this session.
 @dataApiBaseUrl = {{discovery.response.body.$.urls.dataManagementApi}}
-@cmsAdminSecret = {{$dotenv CMS_ADMIN_CLIENT_SECRET}}
+@cmsAdminSecret = {{$dotenv CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET}}
 
 ### Authenticate with bootstrap credentials
 # @name cmsToken
@@ -51,7 +51,7 @@ Content-Type: application/json
 # @name discovery
 GET {{baseUrlApi}}
 
-### Authenticate with DMS using warehouse claimset client
+### Authenticate with Ed-Fi API v8 using warehouse claimset client
 # @name warehouseToken
 POST {{baseUrlApi}}/oauth/token
 Authorization: Basic {{application.response.body.key}} {{application.response.body.secret}}

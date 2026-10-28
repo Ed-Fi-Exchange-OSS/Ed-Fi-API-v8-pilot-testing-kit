@@ -67,7 +67,7 @@ if [ "$force" != true ]; then
     project=$(kit_env_get KIT_PROJECT_NAME "edfi-pilot")
     cat <<EOF
 This permanently deletes, for project '$project':
-  - the PostgreSQL database volume: all DMS and CMS data, including anything bootstrapped or
+  - the PostgreSQL database volume: all Ed-Fi API v8 and CS data, including anything bootstrapped or
     written since the last reset
   - the ApiSchema volume
   - the Data Standard download cache

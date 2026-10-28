@@ -40,7 +40,7 @@ defined the first time they're used; the full set of definitions is in the
   - [Feedback](#feedback)
 
 > [!TIP]
-> This source code uses "DMS" as an acronym in many places. It stands for "Data Management Service",
+> This source code uses "Ed-Fi API v8" as an acronym in many places. It stands for "Data Management Service",
 > which is internal name. This acronym may be replaced in future updates to this repository, as we
 > want to emphasize the proper application name going forward: Ed-Fi API.
 
@@ -567,7 +567,7 @@ failures, each with the exact command or message to look for.
   an upstream Ed-Fi API issue, not something the kit can fix. Workaround: use an allowed namespace
   prefix for the assessment (see [Namespace
   prefixes](docs/credentials-and-claim-sets.md#namespace-prefixes)).
-- **Swagger UI leaves `pageSize` empty.** DMS advertises a default `pageSize` of 500, but rejects
+- **Swagger UI leaves `pageSize` empty.** Ed-Fi API v8 advertises a default `pageSize` of 500, but rejects
   `pageSize` without `pageToken`. So the kit's Swagger UI removes that default. To page with a
   cursor in Swagger UI, fill in both.
 - **A claim set change on an already-running stack can take up to 10 minutes to take effect** if you
