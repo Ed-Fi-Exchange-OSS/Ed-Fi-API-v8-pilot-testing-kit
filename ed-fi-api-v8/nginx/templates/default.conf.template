@@ -13,7 +13,8 @@
 # http level
 # ---------------------------------------------------------------------------------
 
-server_tokens off;
+# server_tokens is not set here: the pinned dhi.io nginx image already sets "server_tokens off" in
+# its http {} block, and a second directive at the same level stops nginx with [emerg] "duplicate".
 
 # Pass the client's correlation ID through, or generate one so every request has one.
 map $http_correlationid $kit_correlation_id {
@@ -90,7 +91,16 @@ server {
     set $kit_service nginx;
     set $kit_data_v3_rewrite false;
 
-    return 301 https://$host$kit_external_port_suffix$request_uri;
+    # Plain-HTTP container health check target (the image's wget needs no TLS support for it).
+    location = /nginx-health {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"ok"}';
+    }
+
+    location / {
+        return 301 https://$host$kit_external_port_suffix$request_uri;
+    }
 }
 
 # ---------------------------------------------------------------------------------
