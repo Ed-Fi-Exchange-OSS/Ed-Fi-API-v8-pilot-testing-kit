@@ -64,7 +64,7 @@ if (-not $Force) {
     }
     $project = Get-KitEnvValue -Name 'KIT_PROJECT_NAME' -Default 'edfi-pilot'
     Write-KitLog "This permanently deletes, for project '$project':"
-    Write-KitLog ('  - the PostgreSQL database volume: all DMS and CMS data, including anything ' +
+    Write-KitLog ('  - the PostgreSQL database volume: all Ed-Fi API v8 and CS data, including anything ' +
         'bootstrapped or written since the last reset')
     Write-KitLog '  - the ApiSchema volume'
     Write-KitLog '  - the Data Standard download cache'

@@ -1,16 +1,16 @@
 # Swagger UI (interim)
 
-These static files serve the Ed-Fi API v8 (DMS) OpenAPI documentation at `https://<host>/swagger/`.
-They are adapted from the DMS repository's `eng/docker-compose/custom-swagger-ui` (copied into this
+These static files serve the Ed-Fi API v8 (Ed-Fi API v8) OpenAPI documentation at `https://<host>/swagger/`.
+They are adapted from the Ed-Fi API v8 repository's `eng/docker-compose/custom-swagger-ui` (copied into this
 repo's git-ignored `dms-compose/` for reference).
 
 **This is an interim choice**. A published Ed-Fi Swagger UI image is still being
 researched and may replace this directory later.
 
-## What changed from the DMS original
+## What changed from the Ed-Fi API v8 original
 
 - **No host names or ports.** The original fetched `http://localhost:${DMS_HTTP_PORTS}/metadata/...`.
-  All DMS URLs are now built from the page's own origin plus a configurable base path:
+  All Ed-Fi API v8 URLs are now built from the page's own origin plus a configurable base path:
   `${window.location.origin}${DMS_BASE_PATH}/metadata/specifications`, which resolves to
   `https://localhost/api/metadata/specifications` behind the kit's NGINX. `DMS_HTTP_PORTS` is gone.
 - **Token URL.** Each spec's OAuth2 `clientCredentials.tokenUrl` is set to
@@ -20,23 +20,23 @@ researched and may replace this directory later.
   forwarded headers aren't honored. If its path is under `DMS_BASE_PATH`, the origin is replaced
   with the page's origin. This replaces the original's `ed-fi-api-config` → `localhost` rewrite.
   The helpers live in `edfi-common-helper.js` (`dmsUrl`, `dmsTokenUrl`, `toSameOrigin`).
-- **`pageSize` starts empty.** DMS gives the `pageSize` query parameter a default of 500, so
-  "Try it out" pre-filled it, but DMS rejects `pageSize` without `pageToken` (400 `PageToken is
+- **`pageSize` starts empty.** Ed-Fi API v8 gives the `pageSize` query parameter a default of 500, so
+  "Try it out" pre-filled it, but Ed-Fi API v8 rejects `pageSize` without `pageToken` (400 `PageToken is
   required when pageSize is specified.`). Every GET collection request therefore failed until
   the user cleared the field. The `pageSizeWithoutDefaultPlugin` in `swagger-initializer.js`
   removes the default and adds a note to the parameter's description. Remove the plugin once
-  DMS stops advertising the default ([DMS-1588](https://edfi.atlassian.net/browse/DMS-1588)).
+  Ed-Fi API v8 stops advertising the default ([Ed-Fi API v8-1588](<https://edfi.atlassian.net/browse/Ed-Fi> API v8-1588)).
 - Everything else is unchanged: custom fields, custom domains, route-context plugins, and the
   single-operation grouping. The tenant and route-qualifier logic stays but is inert, because the
   kit uses neither.
 
-Because Swagger UI and DMS now share one origin, DMS needs no CORS configuration for Swagger UI.
+Because Swagger UI and Ed-Fi API v8 now share one origin, Ed-Fi API v8 needs no CORS configuration for Swagger UI.
 
 ## Variables (substituted into `index.html` at container start)
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `DMS_BASE_PATH` | `/api` | Path of DMS on the NGINX origin. Should equal `/` + the DMS `PATH_BASE`. `/` means DMS is at the site root. Leading and trailing slashes are normalized. If empty or unsubstituted, `/api` is used. |
+| `DMS_BASE_PATH` | `/api` | Path of Ed-Fi API v8 on the NGINX origin. Should equal `/` + the Ed-Fi API v8 `PATH_BASE`. `/` means Ed-Fi API v8 is at the site root. Leading and trailing slashes are normalized. If empty or unsubstituted, `/api` is used. |
 | `DMS_SWAGGER_UI_ENABLE_CUSTOM_DOMAINS` | `true` | `true` groups endpoints by Ed-Fi domain (`edfi-custom-domains.js`); anything else disables it. |
 
 Only these two variables are substituted. `envsubst` is given an explicit list, so no other `$`
@@ -45,7 +45,7 @@ text in the files is touched.
 ## Compose service
 
 The `swagger-ui` service in `../compose.ingress.yml` serves these files with the kit's pinned
-`${NGINX_IMAGE}`. Its command, adapted from DMS `swagger-ui.yml`, renders `index.html` with
+`${NGINX_IMAGE}`. Its command, adapted from Ed-Fi API v8 `swagger-ui.yml`, renders `index.html` with
 `envsubst`, checks that the result isn't empty, copies the JavaScript and favicon, and starts NGINX.
 It starts only after `init-bootstrap` completes successfully, so `docker compose up --wait` waits
 for that one-shot service (see the comment in `../compose.ingress.yml`).
@@ -73,7 +73,7 @@ Notes:
   `location = /swagger { return 301 /swagger/; }`. All asset references in `index.html` are
   relative (`favicon.png`, `edfi-*.js`, `swagger-initializer.js`), so they work under `/swagger/`.
   An absolute path such as `/swagger-initializer.js` would not.
-- DMS must be reachable on the same origin at `DMS_BASE_PATH`, including `/api/metadata/...` and
+- Ed-Fi API v8 must be reachable on the same origin at `DMS_BASE_PATH`, including `/api/metadata/...` and
   `/api/oauth/token`.
 - `oauth2-redirect.html` is not shipped or needed: the kit uses only the client-credentials flow,
   which doesn't redirect.

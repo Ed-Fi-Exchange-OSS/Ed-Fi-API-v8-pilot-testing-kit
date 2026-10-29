@@ -1,8 +1,8 @@
 # pgAdmin
 
 `servers.json` pre-registers the kit's PostgreSQL server in pgAdmin (NFR-OBS-2). There is one
-entry, **Ed-Fi API v8 (DMS + CMS)**, in group **Ed-Fi Pilot Kit**, which connects to host `db`
-port 5432 as `postgres`. The DMS and CMS databases both live on that server. No password is
+entry, **Ed-Fi API v8 (Ed-Fi API v8 + CS)**, in group **Ed-Fi Pilot Kit**, which connects to host `db`
+port 5432 as `postgres`. The Ed-Fi API v8 and CS databases both live on that server. No password is
 stored. pgAdmin prompts for it, and the value is `POSTGRES_PASSWORD` from `.env`.
 
 pgAdmin is reached only through the ingress at `https://<host>/pgadmin/`. It publishes no port.

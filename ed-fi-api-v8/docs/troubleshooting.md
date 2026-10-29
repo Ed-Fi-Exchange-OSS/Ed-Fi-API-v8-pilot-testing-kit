@@ -83,10 +83,10 @@ can be identified, use the two inspect commands at the end of the report.
 shows its plain, line-by-line progress output rather than its interactive progress display.
 
 **Expected startup order**, if you're trying to figure out where a failure sits in the chain: `db`
-and `config` (CMS) become healthy first, then identity seeding, then the schema and data store
+and `config` (CS) become healthy first, then identity seeding, then the schema and data store
 init steps, then the template load, then `dms`, then bootstrapping. A failure early in that chain
 (for example, `init-identity`) usually means a problem with a secret in `.env` -- `init-identity`
-validates each CMS client secret (32-128 characters, with a lowercase letter, an uppercase letter, a
+validates each CS client secret (32-128 characters, with a lowercase letter, an uppercase letter, a
 digit, and a special character) before touching the database, and fails naming the `.env` variable
 if one is invalid.
 
@@ -142,12 +142,12 @@ reporting success with a partially prepared environment. The step names you'll s
 `validate-env`, `validate-baseline-file`, `cms-token`, `bootstrap-credential`, `credentials-file`,
 `dms-token`, `baseline-records`, and `summary`. A failure naming:
 
-- `validate-env` or `cms-token` usually points at a CMS secret problem in `.env`, or CMS not yet
+- `validate-env` or `cms-token` usually points at a CS secret problem in `.env`, or CS not yet
   being reachable.
 - `validate-baseline-file` means `bootstrap/baseline-edorgs.json` is missing or malformed -- this
   should only happen if the repository checkout itself is damaged.
 - `baseline-records` names the specific education organization resource and natural key that failed,
-  with the HTTP status and response body CMS or DMS returned.
+  with the HTTP status and response body CS or Ed-Fi API v8 returned.
 
 To retry bootstrapping on its own, without a destructive reset, once the underlying problem is
 fixed:

@@ -6,7 +6,7 @@
 
 # init-schema: provisions the DS 5.2 schema (tables, indexes, and the dms."EffectiveSchema"
 # marker row) into PostgreSQL from the staged ApiSchema files, using EdFi.Api.SchemaTools (tools
-# image; see tools/README.md for the exact CLI). Runs after db and config are both healthy -- after CMS has
+# image; see tools/README.md for the exact CLI). Runs after db and config are both healthy -- after CS has
 # already deployed its own schema, to avoid concurrent DDL against the same database -- and after
 # init-api-schema has staged the volume this mounts read-only.
 #

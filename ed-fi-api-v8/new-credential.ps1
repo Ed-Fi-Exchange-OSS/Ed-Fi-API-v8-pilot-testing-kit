@@ -27,7 +27,7 @@
     Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
 
 .PARAMETER ClaimSet
-    Optional override of the claim set implied by -Shape. Must already exist in CMS.
+    Optional override of the claim set implied by -Shape. Must already exist in CS.
 
 .PARAMETER EdOrgIds
     Optional comma-separated education organization ids. Defaults depend on -Shape and the loaded

@@ -9,7 +9,7 @@
 # the secret is recoverable after creation -- FR-BOOT-6), and creates any missing records from
 # bootstrap/baseline-edorgs.json: one SEA, one LEA, and three schools (FR-BOOT-2, FR-EDORG-2/4).
 #
-# Runs after DMS is healthy (it POSTs baseline records through the DMS REST API) and after
+# Runs after Ed-Fi API v8 is healthy (it POSTs baseline records through the Ed-Fi API v8 REST API) and after
 # init-template (the education organization category, grade level, and school category descriptors
 # it needs must already exist). Also runnable standalone with `docker compose run --rm
 # init-bootstrap` (FR-BOOT-10, the `bootstrap` script), against either template (FR-EDORG-8:
@@ -23,7 +23,7 @@
 # The secret is never logged; only a truncated prefix of the key is, and only when a new one is
 # created.
 #
-# Baseline records: GET the resource by its natural key first (no upsert endpoint on DMS), and POST
+# Baseline records: GET the resource by its natural key first (no upsert endpoint on Ed-Fi API v8), and POST
 # only if absent, accepting 200 or 201. A missing or corrupt record is recreated on the next run
 # without touching the others (FR-BOOT-4/5). Any failure names the resource, its natural key, and the
 # HTTP status plus body (FR-BOOT-9).
@@ -51,7 +51,7 @@ APPLICATION_NAME="Pilot Kit Bootstrap (ADMIN)"
 DATASTORE_NAME="Pilot Kit"
 CLAIM_SET_NAME="EdFiSandbox"
 
-require_env "$STEP_ENV" CMS_ADMIN_CLIENT_SECRET CONFIG_BASE_URL DMS_BASE_URL PUBLIC_ORIGIN DMS_PATH_BASE
+require_env "$STEP_ENV" CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET CONFIG_BASE_URL DMS_BASE_URL PUBLIC_ORIGIN DMS_PATH_BASE
 
 BOOTSTRAP_DIR="${BOOTSTRAP_DIR:-/bootstrap}"
 RUNTIME_DIR="${RUNTIME_DIR:-/runtime}"
@@ -66,7 +66,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ------------------------------------------------------------------------------------------------
-# Step a: validate baseline-edorgs.json before touching CMS or DMS: a non-empty array of
+# Step a: validate baseline-edorgs.json before touching CS or Ed-Fi API v8: a non-empty array of
 # {resource, naturalKey, body} entries (the shape init/bootstrap.sh and http/edorgs.http
 # both read -- FR-EDORG-14), with at least one stateEducationAgencies entry to scope the credential.
 # ------------------------------------------------------------------------------------------------
@@ -94,7 +94,7 @@ SEA_ID=$(jq -r '[.[] | select(.resource == "stateEducationAgencies")]
 
 log "$STEP_BASELINE_FILE" "$BASELINE_FILE: $(jq 'length' "$BASELINE_FILE") records, SEA id=$SEA_ID"
 
-ADMIN_TOKEN=$(cms_token "$STEP_TOKEN" PilotKitAdmin "$CMS_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
+ADMIN_TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
 
 # ------------------------------------------------------------------------------------------------
 # Step b: the bootstrap vendor and application. See the file header for the reuse/rotate/create
@@ -103,7 +103,7 @@ ADMIN_TOKEN=$(cms_token "$STEP_TOKEN" PilotKitAdmin "$CMS_ADMIN_CLIENT_SECRET" e
 # ------------------------------------------------------------------------------------------------
 
 ensure_bootstrap_credential() {
-    _ebc_existing_ids=$(cms_find_application_ids_by_name "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$APPLICATION_NAME")
+    _ebc_existing_ids=$(CONFIGURATION_SERVICE_find_application_ids_by_name "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$APPLICATION_NAME")
 
     _ebc_valid=false
     if [ -n "$_ebc_existing_ids" ] && [ -f "$CRED_FILE" ]; then
@@ -129,7 +129,7 @@ ensure_bootstrap_credential() {
         _ebc_key_preview=$(printf '%s' "$BOOT_KEY" | cut -c1-8)
         log "$STEP_CREDENTIAL" \
             "reusing existing bootstrap credential id=$BOOT_APPLICATION_ID key=${_ebc_key_preview}..." \
-            "(still authenticates against DMS)"
+            "(still authenticates against Ed-Fi API v8)"
         return 0
     fi
 
@@ -139,7 +139,7 @@ ensure_bootstrap_credential() {
             "longer authenticates; rotating -- deleting and recreating the application. Anything using" \
             "the previous key/secret will need the new credentials file."
         for _ebc_id in $_ebc_existing_ids; do
-            _ebc_status=$(cms_delete_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_ebc_id")
+            _ebc_status=$(CONFIGURATION_SERVICE_delete_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_ebc_id")
             case "$_ebc_status" in
                 2??) log "$STEP_CREDENTIAL" "deleted application $_ebc_id" ;;
                 *) log "$STEP_CREDENTIAL" "WARNING: could not delete application $_ebc_id (HTTP $_ebc_status)" ;;
@@ -147,17 +147,17 @@ ensure_bootstrap_credential() {
         done
     elif [ -f "$CRED_FILE" ]; then
         log "$STEP_CREDENTIAL" \
-            "$CRED_FILE exists but no '$APPLICATION_NAME' application is registered in CMS;" \
+            "$CRED_FILE exists but no '$APPLICATION_NAME' application is registered in CS;" \
             "creating a fresh application and overwriting the file"
     fi
 
-    _ebc_vendor_id=$(cms_ensure_vendor "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$VENDOR_COMPANY" \
+    _ebc_vendor_id=$(CONFIGURATION_SERVICE_ensure_vendor "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$VENDOR_COMPANY" \
         "Pilot Kit Automation" "pilot-kit@example.com" "uri://ed-fi.org")
     log "$STEP_CREDENTIAL" "vendor '$VENDOR_COMPANY' id=$_ebc_vendor_id"
 
-    _ebc_datastore_id=$(cms_find_datastore_id "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$DATASTORE_NAME")
+    _ebc_datastore_id=$(CONFIGURATION_SERVICE_find_datastore_id "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$DATASTORE_NAME")
 
-    # The SEA (id 99) doesn't exist yet at this point -- education organization scoping in CMS is by
+    # The SEA (id 99) doesn't exist yet at this point -- education organization scoping in CS is by
     # id, not by a live reference, so scoping the application ahead of the record it names is fine.
     _ebc_body=$(jq -n \
         --argjson vendorId "$_ebc_vendor_id" \
@@ -167,11 +167,11 @@ ensure_bootstrap_credential() {
         --argjson seaId "$SEA_ID" \
         '{vendorId: $vendorId, applicationName: $applicationName, claimSetName: $claimSetName,
           educationOrganizationIds: [$seaId], dataStoreIds: [$dataStoreId]}')
-    cms_create_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_ebc_body"
+    CONFIGURATION_SERVICE_create_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_ebc_body"
 
-    BOOT_KEY="$CMS_APPLICATION_KEY"
-    BOOT_SECRET="$CMS_APPLICATION_SECRET"
-    BOOT_APPLICATION_ID="$CMS_APPLICATION_ID"
+    BOOT_KEY="$CONFIGURATION_SERVICE_APPLICATION_KEY"
+    BOOT_SECRET="$CONFIGURATION_SERVICE_APPLICATION_SECRET"
+    BOOT_APPLICATION_ID="$CONFIGURATION_SERVICE_APPLICATION_ID"
     WRITE_FILE=true
     _ebc_key_preview=$(printf '%s' "$BOOT_KEY" | cut -c1-8)
     log "$STEP_CREDENTIAL" \
@@ -253,16 +253,16 @@ else
 fi
 
 # ------------------------------------------------------------------------------------------------
-# Step d: a DMS token for the bootstrap credential (Basic auth).
+# Step d: a Ed-Fi API v8 token for the bootstrap credential (Basic auth).
 # ------------------------------------------------------------------------------------------------
 
 DMS_TOKEN=$(dms_token "$STEP_DMS_TOKEN" "$DMS_BASE_URL" "$BOOT_KEY" "$BOOT_SECRET")
-log "$STEP_DMS_TOKEN" "obtained a DMS token for the bootstrap credential"
+log "$STEP_DMS_TOKEN" "obtained a Ed-Fi API v8 token for the bootstrap credential"
 
 # ------------------------------------------------------------------------------------------------
 # Step e: the baseline records, in the file's order (SEA, then LEA, then the three schools -- every
 # reference target already exists by the time it's referenced, FR-EDORG-3). GET by natural key first
-# (DMS has no upsert for these resources); POST only if absent, accepting 200 or 201 as success.
+# (Ed-Fi API v8 has no upsert for these resources); POST only if absent, accepting 200 or 201 as success.
 # ------------------------------------------------------------------------------------------------
 
 process_baseline_records() {

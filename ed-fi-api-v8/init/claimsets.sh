@@ -5,29 +5,29 @@
 # See the LICENSE and NOTICES files in the project root for more information.
 
 # init-claimsets: imports every claim set file in bootstrap/claimsets/ (today,
-# DataWarehouse.json and SISVendorEdOrgWrite.json -- see bootstrap/claimsets/README.md) into CMS with
+# DataWarehouse.json and SISVendorEdOrgWrite.json -- see bootstrap/claimsets/README.md) into CS with
 # POST /v3/claimSets/import.
-# Runs after init-identity (for the PilotKitAdmin token) and before DMS starts (compose.core.yml adds
-# it to dms.depends_on): a claim set imported while DMS is already running returns HTTP 500 "No
-# security metadata has been configured for this resource" until DMS's claim-set cache refreshes, up
-# to ClaimSetsCacheExpirationSeconds (600s). Importing before DMS's first request
+# Runs after init-identity (for the PilotKitAdmin token) and before Ed-Fi API v8 starts (compose.core.yml adds
+# it to dms.depends_on): a claim set imported while Ed-Fi API v8 is already running returns HTTP 500 "No
+# security metadata has been configured for this resource" until Ed-Fi API v8's claim-set cache refreshes, up
+# to ClaimSetsCacheExpirationSeconds (600s). Importing before Ed-Fi API v8's first request
 # avoids that window entirely.
 #
 # Idempotent by name: GET /v3/claimSets first. Absent -> import. Present and identical (compared in
 # normalized form -- see canonicalize() below) -> skip.
 # Present and different -> re-import (/v3/claimSets/import is an upsert by id in this build), then
-# call DMS's claim-set reload endpoint so a *running* DMS picks up the change immediately. Present and
+# call Ed-Fi API v8's claim-set reload endpoint so a *running* Ed-Fi API v8 picks up the change immediately. Present and
 # system-reserved -> fail; this script must never alter one of the 14 embedded claim sets
 # (FR-CLAIM-5..8).
 #
-# FR-CLAIM-14: after importing (new or changed), calls DMS's POST .../management/reload-
+# FR-CLAIM-14: after importing (new or changed), calls Ed-Fi API v8's POST .../management/reload-
 # claimsets with the PilotKitAdmin token above so the change is usable at once instead of waiting up
-# to 10 minutes for DMS's cache. Skipped, with a log line, when DMS_CLAIMSET_RELOAD_ENABLED is not
-# true or DMS is not reachable (the normal case on a clean first start: this service runs before DMS
-# starts, per compose.core.yml). A reload DMS actually answers and rejects fails the step (FR-BOOT-9).
+# to 10 minutes for Ed-Fi API v8's cache. Skipped, with a log line, when DMS_CLAIMSET_RELOAD_ENABLED is not
+# true or Ed-Fi API v8 is not reachable (the normal case on a clean first start: this service runs before Ed-Fi API v8
+# starts, per compose.core.yml). A reload Ed-Fi API v8 actually answers and rejects fails the step (FR-BOOT-9).
 #
 # CONFIG_BASE_URL, CLAIMSETS_DIR, DMS_BASE_URL, and DMS_HEALTH_URL default to the compose values but
-# are overridable, so this script can be pointed at a stub CMS/DMS and a local directory for testing
+# are overridable, so this script can be pointed at a stub CS/Ed-Fi API v8 and a local directory for testing
 # without a container.
 
 set -eu
@@ -46,7 +46,7 @@ STEP_COMPARE=compare-existing
 STEP_IMPORT=import
 STEP_RELOAD=reload-claimset
 
-require_env "$STEP_ENV" CMS_ADMIN_CLIENT_SECRET
+require_env "$STEP_ENV" CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET
 CONFIG_BASE_URL="${CONFIG_BASE_URL:-http://config:8081}"
 CLAIMSETS_DIR="${CLAIMSETS_DIR:-/claimsets}"
 DMS_CLAIMSET_RELOAD_ENABLED="${DMS_CLAIMSET_RELOAD_ENABLED:-true}"
@@ -62,13 +62,13 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-TOKEN=$(cms_token "$STEP_TOKEN" PilotKitAdmin "$CMS_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
+TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
 
 # ------------------------------------------------------------------------------------------------
 # canonicalize <file> -> normalized {claimSetName, resourceClaims[...]} on stdout, so an import body
 # and a GET .../export response can be diffed even though the export adds fields the import never
 # sent (top-level id/_isSystemReserved/_applications; per-claim _defaultAuthorizationStrategies) and
-# reorders arrays, and even though CMS's own AuthorizationStrategyListJsonConverter writes
+# reorders arrays, and even though CS's own AuthorizationStrategyListJsonConverter writes
 # "authStrategyName" on the way out but accepts "name" on the way in. `-S` sorts object keys so
 # construction-order differences never show up as a diff; sort_by handles array order.
 # ------------------------------------------------------------------------------------------------
@@ -115,7 +115,7 @@ list_claim_sets() {
 
 # ------------------------------------------------------------------------------------------------
 # import_claim_set <file> -- POST /v3/claimSets/import. Fails, printing the warnings array, on any
-# non-empty warnings: that is CMS's runtime signal that a claimName in the file doesn't match a real
+# non-empty warnings: that is CS's runtime signal that a claimName in the file doesn't match a real
 # node in the claims hierarchy, which is the guard against a name typed wrong in the JSON.
 # ------------------------------------------------------------------------------------------------
 
@@ -143,16 +143,16 @@ import_claim_set() {
 }
 
 # ------------------------------------------------------------------------------------------------
-# reload_claim_set_if_running <claim_set_name> (FR-CLAIM-14). Forces DMS to drop its
+# reload_claim_set_if_running <claim_set_name> (FR-CLAIM-14). Forces Ed-Fi API v8 to drop its
 # up-to-10-minute claim-set cache (ClaimSetsCacheExpirationSeconds) right after an
 # import, so the caller's claim set is usable at once. Uses the PilotKitAdmin token already obtained
-# above ($TOKEN): DMS validates it the same way it validates a data-request bearer token (both trust
-# CMS's issuer/audience/signing key), and PilotKitAdmin carries the role
+# above ($TOKEN): Ed-Fi API v8 validates it the same way it validates a data-request bearer token (both trust
+# CS's issuer/audience/signing key), and PilotKitAdmin carries the role
 # AppSettings__ManagementEndpoints__RequiredRole requires (init/identity.sh).
 #
-# Never dies for "DMS isn't up" -- that is the normal case on a clean first start, since compose.
-# core.yml runs this service before DMS starts. Any other non-200 (401/403 from a misconfigured
-# role, or a real server error) fails the step: a reload DMS actually answered and refused means the
+# Never dies for "Ed-Fi API v8 isn't up" -- that is the normal case on a clean first start, since compose.
+# core.yml runs this service before Ed-Fi API v8 starts. Any other non-200 (401/403 from a misconfigured
+# role, or a real server error) fails the step: a reload Ed-Fi API v8 actually answered and refused means the
 # claim set change did not take effect, which the caller must not silently report as success.
 # ------------------------------------------------------------------------------------------------
 
@@ -168,9 +168,9 @@ reload_claim_set_if_running() {
         || _rc_health_status=000
     if [ "$_rc_health_status" != "200" ]; then
         log "$STEP_RELOAD" \
-            "skipped for '$_rc_name': DMS is not reachable at $DMS_HEALTH_URL (HTTP $_rc_health_status)." \
+            "skipped for '$_rc_name': Ed-Fi API v8 is not reachable at $DMS_HEALTH_URL (HTTP $_rc_health_status)." \
             "Expected on a clean first start (init-claimsets runs before dms, compose.core.yml); the" \
-            "up-to-10-minute cache window never opens because the claim set predates DMS's first request."
+            "up-to-10-minute cache window never opens because the claim set predates Ed-Fi API v8's first request."
         return 0
     fi
 

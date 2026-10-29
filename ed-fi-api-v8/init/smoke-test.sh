@@ -6,7 +6,7 @@
 
 # smoke-test (FR-TEST-4): runs the same path as http/smoke.http non-interactively, through
 # NGINX (INGRESS_BASE_URL, verified with INGRESS_CA_FILE), so TLS and routing are exercised too, not
-# just DMS directly. Called by smoke-test.sh/.ps1 as
+# just Ed-Fi API v8 directly. Called by smoke-test.sh/.ps1 as
 #   docker compose run --rm --no-deps --user 0:0 tools sh /init/smoke-test.sh
 #
 # Unlike the other init/*.sh scripts, this one deliberately does NOT use `set -e`: a smoke test that
@@ -38,7 +38,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$SCRIPT_DIR/lib.sh"
 
 require_env smoke-test INGRESS_BASE_URL INGRESS_CA_FILE DMS_PATH_BASE CONFIG_BASE_URL \
-    CMS_ADMIN_CLIENT_SECRET POSTGRES_PASSWORD POSTGRES_DB_NAME
+    CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET POSTGRES_PASSWORD POSTGRES_DB_NAME
 
 RUNTIME_DIR="${RUNTIME_DIR:-/runtime}"
 CRED_FILE="$RUNTIME_DIR/bootstrap-credentials.json"
@@ -116,7 +116,7 @@ print_summary_and_exit() {
 
 # ------------------------------------------------------------------------------------------------
 # http_request <method> <url> [curl-args...] -> sets RESP_STATUS, RESP_BODY_FILE, RESP_HEADERS_FILE.
-# Always verifies TLS against INGRESS_CA_FILE. Never dies: a request that can't be sent at all (DMS
+# Always verifies TLS against INGRESS_CA_FILE. Never dies: a request that can't be sent at all (Ed-Fi API v8
 # or NGINX unreachable) sets RESP_STATUS=000 so the caller can report it as a normal FAIL/step.
 # ------------------------------------------------------------------------------------------------
 
@@ -172,7 +172,7 @@ http_request POST "$SMOKE_BASE/oauth/token" \
     --user "${BOOT_KEY}:${BOOT_SECRET}" --data-urlencode "grant_type=client_credentials"
 if [ "$RESP_STATUS" = "503" ]; then
     record_fail token \
-        "NGINX returned 503 for $SMOKE_BASE/oauth/token -- DMS appears to be down." \
+        "NGINX returned 503 for $SMOKE_BASE/oauth/token -- Ed-Fi API v8 appears to be down." \
         "$(jq -r '.detail // empty' "$RESP_BODY_FILE" 2>/dev/null)" \
         "(docker compose ps dms; docker compose logs dms)"
     print_summary_and_exit
@@ -218,7 +218,7 @@ fi
 
 # ==================================================================================================
 # Step 4: write + read-back. FeederSchoolAssociation needs no descriptor and no student, only the
-# two baseline schools -- see http/smoke.http for why. DMS upserts by natural key, so this is safe
+# two baseline schools -- see http/smoke.http for why. Ed-Fi API v8 upserts by natural key, so this is safe
 # to run twice against the same database (idempotent rerun).
 # ==================================================================================================
 
@@ -379,7 +379,7 @@ else
     _assess_edorg_id=$(printf '%s' "$POPULATED_SEED_EDORG_IDS" | cut -d, -f1)
     _assess_school_id="$POPULATED_SAMPLE_SCHOOL_ID"
     _assess_name="Pilot Kit Smoke Test (Assessment)"
-    # Must start with one of the vendor's namespace prefixes (cms_ensure_vendor below):
+    # Must start with one of the vendor's namespace prefixes (CONFIGURATION_SERVICE_ensure_vendor below):
     # assessment metadata is authorized NamespaceBased. The vendor gets a custom prefix on top of
     # the populated defaults, and the assessment is written under it, exercising what
     # new-credential --namespace-prefix relies on.
@@ -400,22 +400,22 @@ else
             *) log assessment-write "WARNING: could not delete $1/$2 (HTTP $RESP_STATUS)" ;;
         esac
     }
-    _admin_token=$(cms_token assessment-write PilotKitAdmin "$CMS_ADMIN_CLIENT_SECRET" \
+    _admin_token=$(CONFIGURATION_SERVICE_token assessment-write PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
         edfi_admin_api/full_access 2>"$WORK_DIR/assess-token.err") || {
         record_fail assessment-write \
-            "could not get a PilotKitAdmin CMS token: $(cat "$WORK_DIR/assess-token.err")"
+            "could not get a PilotKitAdmin CS token: $(cat "$WORK_DIR/assess-token.err")"
         _admin_token=""
     }
 
     if [ -n "$_admin_token" ]; then
-        _old_ids=$(cms_find_application_ids_by_name assessment-write "$_admin_token" "$_assess_name")
+        _old_ids=$(CONFIGURATION_SERVICE_find_application_ids_by_name assessment-write "$_admin_token" "$_assess_name")
         for _old_id in $_old_ids; do
-            cms_delete_application assessment-write "$_admin_token" "$_old_id" >/dev/null
+            CONFIGURATION_SERVICE_delete_application assessment-write "$_admin_token" "$_old_id" >/dev/null
         done
-        _assess_vendor_id=$(cms_ensure_vendor assessment-write "$_admin_token" "$_assess_name" \
+        _assess_vendor_id=$(CONFIGURATION_SERVICE_ensure_vendor assessment-write "$_admin_token" "$_assess_name" \
             "Pilot Kit Automation" "pilot-kit@example.com" \
             "uri://ed-fi.org,uri://gbisd.edu,$_assess_custom_prefix")
-        _assess_datastore_id=$(cms_find_datastore_id assessment-write "$_admin_token" "Pilot Kit")
+        _assess_datastore_id=$(CONFIGURATION_SERVICE_find_datastore_id assessment-write "$_admin_token" "Pilot Kit")
         _assess_body=$(jq -n \
             --argjson vendorId "$_assess_vendor_id" \
             --arg applicationName "$_assess_name" \
@@ -423,10 +423,10 @@ else
             --argjson dataStoreId "$_assess_datastore_id" \
             '{vendorId: $vendorId, applicationName: $applicationName, claimSetName: "AssessmentVendor",
               educationOrganizationIds: [$edorgId], dataStoreIds: [$dataStoreId]}')
-        cms_create_application assessment-write "$_admin_token" "$_assess_body"
-        _assess_key="$CMS_APPLICATION_KEY"
-        _assess_secret="$CMS_APPLICATION_SECRET"
-        _assess_app_id="$CMS_APPLICATION_ID"
+        CONFIGURATION_SERVICE_create_application assessment-write "$_admin_token" "$_assess_body"
+        _assess_key="$CONFIGURATION_SERVICE_APPLICATION_KEY"
+        _assess_secret="$CONFIGURATION_SERVICE_APPLICATION_SECRET"
+        _assess_app_id="$CONFIGURATION_SERVICE_APPLICATION_ID"
         debug_credential "assessment-write ($_assess_name, AssessmentVendor)" \
             "$_assess_key" "$_assess_secret"
 
@@ -444,7 +444,7 @@ else
                 # studentAssessments) in its vendor's namespaces, but cannot read schools or write
                 # enrollments. So the step writes what an assessment vendor actually writes: its own
                 # assessment, then a studentAssessment for the existing student, reported at the
-                # known sample school (checked against the credential's LEA by DMS).
+                # known sample school (checked against the credential's LEA by Ed-Fi API v8).
                 _assessment_body=$(jq -n --arg namespace "$_assess_namespace" \
                     '{assessmentIdentifier: "pilot-kit-smoke-test", namespace: $namespace,
                       assessmentTitle: "Pilot Kit Smoke Test",
@@ -505,7 +505,7 @@ else
                 "could not get a token for the throwaway assessment credential (HTTP $RESP_STATUS)"
         fi
 
-        _cleanup_status=$(cms_delete_application assessment-write "$_admin_token" "$_assess_app_id")
+        _cleanup_status=$(CONFIGURATION_SERVICE_delete_application assessment-write "$_admin_token" "$_assess_app_id")
         case "$_cleanup_status" in
             2??) ;;
             *)

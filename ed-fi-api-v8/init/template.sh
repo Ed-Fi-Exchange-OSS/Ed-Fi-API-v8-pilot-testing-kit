@@ -12,7 +12,7 @@
 # every step below has succeeded, so a partial failure leaves none and the next start retries from
 # scratch.
 #
-# Runs after DMS is healthy (it loads through the DMS REST API and BulkLoadClient), and after
+# Runs after Ed-Fi API v8 is healthy (it loads through the Ed-Fi API v8 REST API and BulkLoadClient), and after
 # init-identity/init-datastore, whose PilotKitAdmin client this script authenticates as.
 #
 # GitHub archive zips aren't guaranteed byte-stable, so
@@ -46,7 +46,7 @@ DATASTORE_NAME="Pilot Kit"
 SEED_NAMESPACE_PREFIXES="uri://ed-fi.org,uri://gbisd.edu"
 
 require_env "$STEP_ENV" \
-    DATABASE_TEMPLATE CONFIG_BASE_URL DMS_BASE_URL CMS_ADMIN_CLIENT_SECRET \
+    DATABASE_TEMPLATE CONFIG_BASE_URL DMS_BASE_URL CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET \
     POSTGRES_PASSWORD POSTGRES_DB_NAME \
     DATA_STANDARD_URL DATA_STANDARD_VERSION DATA_STANDARD_CONTENT_SHA256 \
     DATA_STANDARD_SAMPLES_SHA256 POPULATED_SEED_EDORG_IDS
@@ -69,7 +69,7 @@ export PGUSER=postgres
 export PGDATABASE="$POSTGRES_DB_NAME"
 export PGPASSWORD="$POSTGRES_PASSWORD"
 
-# A private scratch directory for extraction and CMS response bodies. Removed on exit either way.
+# A private scratch directory for extraction and CS response bodies. Removed on exit either way.
 WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/init-template.XXXXXX")
 cleanup() {
     rm -rf "$WORK_DIR"
@@ -283,19 +283,19 @@ fi
 # application is recreated every attempt and deleted after a successful load, so the credential never
 # outlives initialization. Any
 # leftover application from an earlier failed run is deleted first, matched by name and before the
-# vendor is touched, so a vendor that needs recreating (cms_ensure_vendor) never has an application
+# vendor is touched, so a vendor that needs recreating (CONFIGURATION_SERVICE_ensure_vendor) never has an application
 # still pointing at it. Populated needs educationOrganizationIds for the sample LEA, ESC, PSI, and
 # community provider; minimal keeps the empty list.
 # ------------------------------------------------------------------------------------------------
 
 provision_seed_credential() {
-    ADMIN_TOKEN=$(cms_token "$STEP_CREDENTIAL" PilotKitAdmin "$CMS_ADMIN_CLIENT_SECRET" \
+    ADMIN_TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_CREDENTIAL" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
         edfi_admin_api/full_access)
 
-    _psc_leftover_ids=$(cms_find_application_ids_by_name \
+    _psc_leftover_ids=$(CONFIGURATION_SERVICE_find_application_ids_by_name \
         "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$APPLICATION_NAME")
     for _psc_leftover_id in $_psc_leftover_ids; do
-        _psc_status=$(cms_delete_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_psc_leftover_id")
+        _psc_status=$(CONFIGURATION_SERVICE_delete_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_psc_leftover_id")
         case "$_psc_status" in
             2??) log "$STEP_CREDENTIAL" "deleted leftover application $_psc_leftover_id" ;;
             *)
@@ -305,11 +305,11 @@ provision_seed_credential() {
         esac
     done
 
-    VENDOR_ID=$(cms_ensure_vendor "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$VENDOR_COMPANY" \
+    VENDOR_ID=$(CONFIGURATION_SERVICE_ensure_vendor "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$VENDOR_COMPANY" \
         "Pilot Kit Automation" "pilot-kit@example.com" "$SEED_NAMESPACE_PREFIXES")
     log "$STEP_CREDENTIAL" "vendor '$VENDOR_COMPANY' id=$VENDOR_ID"
 
-    DATASTORE_ID=$(cms_find_datastore_id "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$DATASTORE_NAME")
+    DATASTORE_ID=$(CONFIGURATION_SERVICE_find_datastore_id "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$DATASTORE_NAME")
 
     if [ "$DATABASE_TEMPLATE" = "populated" ]; then
         _psc_edorg_ids_json=$(printf '%s' "$POPULATED_SEED_EDORG_IDS" | jq -R -c 'split(",") | map(tonumber)')
@@ -325,20 +325,20 @@ provision_seed_credential() {
         '{vendorId: $vendorId, applicationName: $applicationName, claimSetName: "SeedLoader",
           educationOrganizationIds: $educationOrganizationIds, dataStoreIds: [$dataStoreId],
           profileIds: []}')
-    cms_create_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_psc_body"
+    CONFIGURATION_SERVICE_create_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_psc_body"
     log "$STEP_CREDENTIAL" \
-        "created application '$APPLICATION_NAME' id=$CMS_APPLICATION_ID" \
+        "created application '$APPLICATION_NAME' id=$CONFIGURATION_SERVICE_APPLICATION_ID" \
         "educationOrganizationIds=$_psc_edorg_ids_json"
 }
 
 provision_seed_credential
 
 # ------------------------------------------------------------------------------------------------
-# Step e: a DMS token for the SeedLoader credential (Basic auth, unlike the CMS system clients).
+# Step e: a Ed-Fi API v8 token for the SeedLoader credential (Basic auth, unlike the CS system clients).
 # ------------------------------------------------------------------------------------------------
 
-DMS_TOKEN=$(dms_token "$STEP_TOKEN" "$DMS_BASE_URL" "$CMS_APPLICATION_KEY" "$CMS_APPLICATION_SECRET")
-log "$STEP_TOKEN" "obtained a DMS token for the SeedLoader credential"
+DMS_TOKEN=$(dms_token "$STEP_TOKEN" "$DMS_BASE_URL" "$CONFIGURATION_SERVICE_APPLICATION_KEY" "$CONFIGURATION_SERVICE_APPLICATION_SECRET")
+log "$STEP_TOKEN" "obtained a Ed-Fi API v8 token for the SeedLoader credential"
 
 # ------------------------------------------------------------------------------------------------
 # Step f: SchoolYearType, 1991-2037. v5.x models it as a closed XSD enumeration with no interchange,
@@ -390,7 +390,7 @@ seed_school_year_types
 
 # ------------------------------------------------------------------------------------------------
 # Step g: BulkLoadClient loads the descriptor tier, then (populated only) the resource tier. `-b` is
-# the DMS base including /api; BulkLoadClient reads /api/metadata/specifications and uses the local
+# the Ed-Fi API v8 base including /api; BulkLoadClient reads /api/metadata/specifications and uses the local
 # `-x` XSDs instead of downloading them. A non-zero exit fails the step that produced
 # it, naming which tier; nothing here parses the console output for a partial-success count, so any
 # failure aborts the whole load.
@@ -404,7 +404,7 @@ run_bulk_load() {
     log "$STEP_LOAD" "running BulkLoadClient ($_rbl_tier tier) against $_rbl_dir"
     bulkloadclient -b "$DMS_BASE_URL" -o "${DMS_BASE_URL}/oauth/token" \
         -d "$_rbl_dir" -w "$_rbl_work" \
-        -k "$CMS_APPLICATION_KEY" -s "$CMS_APPLICATION_SECRET" \
+        -k "$CONFIGURATION_SERVICE_APPLICATION_KEY" -s "$CONFIGURATION_SERVICE_APPLICATION_SECRET" \
         -x "$BULK_XSD_DIR" -c 10 -l 10 -t 5 -r 2 \
         || die "$STEP_LOAD" \
             "BulkLoadClient exited non-zero on the $_rbl_tier tier; see the output above for the" \
@@ -476,7 +476,7 @@ verify_load
 
 # ------------------------------------------------------------------------------------------------
 # Step i: everything succeeded. Write the marker, delete the SeedLoader application (a warning, not a
-# failure, if that doesn't work -- see cms_delete_application), and log a summary.
+# failure, if that doesn't work -- see CONFIGURATION_SERVICE_delete_application), and log a summary.
 # ------------------------------------------------------------------------------------------------
 
 write_marker() {
@@ -490,13 +490,13 @@ SQL
 
 write_marker
 
-_cleanup_status=$(cms_delete_application "$STEP_CLEANUP" "$ADMIN_TOKEN" "$CMS_APPLICATION_ID")
+_cleanup_status=$(CONFIGURATION_SERVICE_delete_application "$STEP_CLEANUP" "$ADMIN_TOKEN" "$CONFIGURATION_SERVICE_APPLICATION_ID")
 case "$_cleanup_status" in
-    2??) log "$STEP_CLEANUP" "deleted the SeedLoader application ($CMS_APPLICATION_ID)" ;;
+    2??) log "$STEP_CLEANUP" "deleted the SeedLoader application ($CONFIGURATION_SERVICE_APPLICATION_ID)" ;;
     *)
         log "$STEP_CLEANUP" \
-            "WARNING: could not delete the SeedLoader application $CMS_APPLICATION_ID" \
-            "(HTTP $_cleanup_status). DELETE /v3/applications is unverified against real CMS" \
+            "WARNING: could not delete the SeedLoader application $CONFIGURATION_SERVICE_APPLICATION_ID" \
+            "(HTTP $_cleanup_status). DELETE /v3/applications is unverified against real CS" \
             "-- remove it manually if this persists."
         ;;
 esac

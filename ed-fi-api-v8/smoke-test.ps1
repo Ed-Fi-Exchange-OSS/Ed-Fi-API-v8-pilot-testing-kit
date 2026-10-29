@@ -12,7 +12,7 @@
 .DESCRIPTION
     Host wrapper for init/smoke-test.sh, independent of the start/stop/reset/bootstrap scripts
     and new-credential. Runs the smoke test inside the tools container, through NGINX, so
-    routing and TLS are exercised too (not just DMS directly):
+    routing and TLS are exercised too (not just Ed-Fi API v8 directly):
         docker compose run --rm --no-deps --user 0:0 tools sh /init/smoke-test.sh
     --no-deps so a stopped stack fails with "run start first" instead of being started. The tools
     service mounts http/ read-only for the edorgs.http consistency check (FR-EDORG-14). This
@@ -27,7 +27,7 @@
 
 .PARAMETER CheckEdorgsOnly
     Only run the http/edorgs.http vs bootstrap/baseline-edorgs.json consistency check (FR-EDORG-14)
-    and exit -- skips every DMS/NGINX request.
+    and exit -- skips every Ed-Fi API v8/NGINX request.
 
 .PARAMETER DebugCredentials
     Print each client key/secret pair the smoke test reads or creates, to help diagnose

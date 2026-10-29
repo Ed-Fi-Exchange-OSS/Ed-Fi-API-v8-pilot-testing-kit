@@ -18,7 +18,7 @@ services:
     environment:
       HTTPS_PORT: ${HTTPS_PORT:-443}
       DMS_PATH_BASE: ${DMS_PATH_BASE:-api}
-      CMS_PATH_BASE: ${CMS_PATH_BASE:-config}
+      CONFIGURATION_SERVICE_PATH_BASE: ${CONFIGURATION_SERVICE_PATH_BASE:-config}
       DATA_V3_REWRITE_ENABLED: ${DATA_V3_REWRITE_ENABLED:-true}
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-false}
       RATE_LIMIT_RATE: ${RATE_LIMIT_RATE:-50r/s}
@@ -70,7 +70,7 @@ services:
         exec nginx -g 'daemon off;'
     # Defined in compose.init.yml. With this dependency, `up --wait` waits for the one-shot
     # init-bootstrap to complete instead of checking it as a long-running service (which fails).
-    # Swagger UI is only useful once DMS is initialized anyway.
+    # Swagger UI is only useful once Ed-Fi API v8 is initialized anyway.
     depends_on:
       init-bootstrap:
         condition: service_completed_successfully

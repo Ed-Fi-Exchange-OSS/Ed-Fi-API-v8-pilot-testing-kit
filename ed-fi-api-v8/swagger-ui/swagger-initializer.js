@@ -4,7 +4,7 @@
 // See the LICENSE and NOTICES files in the project root for more information.
 
 window.onload = function () {
-    // DMS is served on this page's origin under window.DMS_BASE_PATH (default "/api"), behind the
+    // Ed-Fi API v8 is served on this page's origin under window.DMS_BASE_PATH (default "/api"), behind the
     // kit's NGINX ingress. No host names or ports are hard-coded.
     const helper = window.EdfiCommonHelper;
     const defaultUrls = [
@@ -12,9 +12,9 @@ window.onload = function () {
         { url: helper.dmsUrl('/metadata/specifications/descriptors-spec.json'), name: "Descriptors" }
     ];
 
-    // Points every spec at the browser-visible origin: server URLs and OAuth token URLs that DMS
+    // Points every spec at the browser-visible origin: server URLs and OAuth token URLs that Ed-Fi API v8
     // generated with an internal origin are rewritten, and the client-credentials token URL is set
-    // to the DMS token endpoint behind NGINX (<origin>/api/oauth/token).
+    // to the Ed-Fi API v8 token endpoint behind NGINX (<origin>/api/oauth/token).
     function sameOriginPlugin() {
         const normalizeSpec = (specification) => {
             if (!specification || typeof specification !== 'object') {
@@ -152,10 +152,10 @@ window.onload = function () {
         };
     }
 
-    // DMS advertises a default of 500 for the pageSize query parameter, so "Try it out" pre-fills
-    // it. But DMS rejects pageSize without pageToken (400 "PageToken is required when pageSize is
+    // Ed-Fi API v8 advertises a default of 500 for the pageSize query parameter, so "Try it out" pre-fills
+    // it. But Ed-Fi API v8 rejects pageSize without pageToken (400 "PageToken is required when pageSize is
     // specified."), so every GET failed until the user cleared the field. Drop the default so the
-    // field starts empty, and say why in its description. Remove once DMS-1588 is fixed upstream.
+    // field starts empty, and say why in its description. Remove once Ed-Fi API v8-1588 is fixed upstream.
     function pageSizeWithoutDefaultPlugin() {
         const operationMethods = new Set(['delete', 'get', 'head', 'options', 'patch', 'post', 'put', 'trace']);
         const note = 'Only valid together with pageToken; for the first page, use limit or leave this empty.';

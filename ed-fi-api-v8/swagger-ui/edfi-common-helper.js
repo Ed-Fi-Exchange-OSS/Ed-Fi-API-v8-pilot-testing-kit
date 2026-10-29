@@ -7,7 +7,7 @@
     const DEFAULT_DMS_BASE_PATH = '/api';
 
     // Normalizes a configured base path: "" or an unsubstituted "${...}" falls back to the
-    // default, "/" means "DMS at the site root", and any other value gets a leading slash and no
+    // default, "/" means "Ed-Fi API v8 at the site root", and any other value gets a leading slash and no
     // trailing slash. Examples: "api" -> "/api", "/api/" -> "/api", "/" -> "".
     const normalizeBasePath = (value, fallback) => {
         let path = typeof value === 'string' ? value.trim() : '';
@@ -23,13 +23,13 @@
 
     const dmsBasePath = normalizeBasePath(window.DMS_BASE_PATH, DEFAULT_DMS_BASE_PATH);
 
-    // Absolute, same-origin URL for a path under the DMS base path, e.g.
+    // Absolute, same-origin URL for a path under the Ed-Fi API v8 base path, e.g.
     // dmsUrl('/metadata/specifications') -> "https://localhost/api/metadata/specifications".
     const dmsUrl = (path) => `${window.location.origin}${dmsBasePath}${path || ''}`;
 
-    // Rewrites an absolute URL that DMS generated with an internal origin (for example
+    // Rewrites an absolute URL that Ed-Fi API v8 generated with an internal origin (for example
     // "http://dms:8080/api/data/..." or "http://localhost:8080/api/..." when forwarded headers are
-    // not honored) onto the browser's origin. Only URLs whose path is under the DMS base path are
+    // not honored) onto the browser's origin. Only URLs whose path is under the Ed-Fi API v8 base path are
     // rewritten; everything else, including relative URLs, is returned unchanged.
     const toSameOrigin = (url) => {
         if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
@@ -71,7 +71,7 @@
         },
         dmsBasePath,
         dmsUrl,
-        // The DMS token endpoint as seen by the browser (behind NGINX: /api/oauth/token).
+        // The Ed-Fi API v8 token endpoint as seen by the browser (behind NGINX: /api/oauth/token).
         dmsTokenUrl: () => dmsUrl('/oauth/token'),
         toSameOrigin,
     };

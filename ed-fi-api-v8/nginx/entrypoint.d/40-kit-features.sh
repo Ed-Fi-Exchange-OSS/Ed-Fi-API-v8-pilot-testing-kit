@@ -60,7 +60,7 @@ PROXY_READ_TIMEOUT=${PROXY_READ_TIMEOUT:-300s}
 
 # --- Validation ---------------------------------------------------------------------
 
-for name in DMS_PATH_BASE CMS_PATH_BASE; do
+for name in DMS_PATH_BASE CONFIGURATION_SERVICE_PATH_BASE; do
     eval "value=\${$name:-}"
     if [ -n "$value" ] && ! matches "$value" '^[A-Za-z0-9][A-Za-z0-9._-]*$'; then
         fail "$name must be a single path segment such as 'api' (got '$value')."
@@ -142,7 +142,7 @@ fi
 
 if [ "$RATE_LIMIT_ENABLED" = true ]; then
     # limit_req_zone is only valid at http level, so it goes into conf.d/ itself.
-    # Only DMS routes (including /data/v3) are limited; an empty key is not counted.
+    # Only Ed-Fi API v8 routes (including /data/v3) are limited; an empty key is not counted.
     cat > "$HTTP_RATE_LIMIT_CONF" <<EOF
 # Written by $ME (RATE_LIMIT_ENABLED=true)
 map \$kit_service \$kit_rate_limit_key {
