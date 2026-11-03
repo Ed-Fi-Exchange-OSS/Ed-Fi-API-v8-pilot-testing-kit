@@ -113,6 +113,12 @@ detail on every claim set.
 Each step below says what to run and what to expect before moving to the next one. Bash and
 PowerShell 7 commands behave identically.
 
+> [!IMPORTANT]
+> Already running a previous release (8.1.0-beta1 or earlier)? Don't try to upgrade in place. Tear
+> the kit down with `./reset.sh` / `.\reset.ps1` and start fresh with the steps below. The reset
+> deletes the kit's data, so it is not suitable if you need to keep it. If you do, see
+> [Upgrading from 8.1.0-beta1](docs/troubleshooting.md#upgrading-from-810-beta1).
+
 ### 1. Clone and change into the kit directory
 
 ```bash
