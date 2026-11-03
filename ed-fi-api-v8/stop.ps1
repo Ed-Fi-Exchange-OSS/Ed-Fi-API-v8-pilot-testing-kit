@@ -37,6 +37,7 @@ if ($Help) {
 
 Assert-KitDockerRunning
 Assert-KitComposeAvailable
+Convert-KitLegacyEnv
 
 Invoke-KitCompose stop
 if ($LASTEXITCODE -ne 0) {

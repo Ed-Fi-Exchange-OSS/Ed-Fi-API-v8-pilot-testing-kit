@@ -56,6 +56,7 @@ if ($Help) {
 
 Assert-KitDockerRunning
 Assert-KitComposeAvailable
+Convert-KitLegacyEnv
 
 if (-not $Force) {
     $isInteractive = [Environment]::UserInteractive -and -not ([Console]::IsInputRedirected)

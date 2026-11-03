@@ -59,6 +59,7 @@ done
 
 kit_require_docker
 kit_require_compose
+kit_migrate_legacy_env
 
 if [ "$force" != true ]; then
     if [ ! -t 0 ]; then

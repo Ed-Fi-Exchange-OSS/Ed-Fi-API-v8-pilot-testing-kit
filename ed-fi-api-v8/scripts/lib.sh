@@ -28,10 +28,17 @@
 #                                     lowercase, one uppercase, one digit, and one special character.
 #                                     "safe" (default "full") drops ';' from the special-character
 #                                     pool -- see the comment on _KIT_SPECIAL_SAFE below.
+#   kit_migrate_legacy_env           rename the 8.1.0-beta1 CMS_* variables in an existing .env to
+#                                     their CONFIGURATION_SERVICE_* names, keeping every value (so the
+#                                     existing secrets and encryption keys still match the database).
+#                                     Idempotent; backs .env up to .env.pre-beta2.bak first
+#   kit_check_db_volume              kit_die, changing nothing, if POSTGRES_IMAGE pins PostgreSQL
+#                                     before 18 or the db-data volume still holds a pre-18 cluster
 #   kit_ensure_env                   create .env from .env.example with generated secrets if it
-#                                     doesn't exist; otherwise warn (by name) about any variable in
-#                                     .env.example that .env is missing. Never modifies an existing
-#                                     .env value, and never prints a secret value.
+#                                     doesn't exist; otherwise migrate legacy names (above) and warn
+#                                     (by name) about any variable in .env.example that .env is
+#                                     missing. Never modifies an existing .env value, and never prints
+#                                     a secret value or the template default of a secret.
 #                                     Refuses (kit_die) to generate new secrets if .env is missing
 #                                     but this kit's Docker volumes still exist.
 #   kit_check_public_origin          kit_die unless PUBLIC_ORIGIN's port matches HTTPS_PORT
@@ -157,6 +164,68 @@ kit_env_set() {
         printf '%s=%s\n' "$_kes_name" "$_kes_value" >>"$_kes_tmp"
     fi
     mv "$_kes_tmp" "$_kes_file"
+}
+
+# ----------------------------------------------------------------------------------------------
+# Upgrade from 8.1.0-beta1: renamed variables. Every `docker compose` command (even stop and down)
+# interpolates all of the Compose files, so an .env that still has CMS_* fails with "must be set in
+# .env" until these are renamed. Only the names change; the values are kept as they are.
+# ----------------------------------------------------------------------------------------------
+
+_KIT_LEGACY_CMS_SUFFIXES="PATH_BASE DB_MAX_POOL_SIZE SERVICE_CLIENT_SECRET READONLY_CLIENT_SECRET"
+_KIT_LEGACY_CMS_SUFFIXES="$_KIT_LEGACY_CMS_SUFFIXES ADMIN_CLIENT_SECRET DATABASE_ENCRYPTION_KEY"
+_KIT_LEGACY_CMS_SUFFIXES="$_KIT_LEGACY_CMS_SUFFIXES IDENTITY_ENCRYPTION_KEY"
+_KIT_LEGACY_CMS_SUFFIXES="$_KIT_LEGACY_CMS_SUFFIXES ALLOW_CLIENT_REGISTRATION LOG_LEVEL"
+
+# _kit_env_rename <OLD> <NEW> -- renames the OLD= line(s) to NEW= in .env, leaving the values alone.
+_kit_env_rename() {
+    local file tmp
+    file=$(_kit_env_file)
+    tmp=$(mktemp "${TMPDIR:-/tmp}/kit-env.XXXXXX")
+    sed -E "s/^$1=/$2=/" "$file" >"$tmp" && mv "$tmp" "$file"
+}
+
+kit_migrate_legacy_env() {
+    local env_file example_file suffix todo="" backup image
+    env_file=$(_kit_env_file)
+    example_file="$KIT_DIR/.env.example"
+    [ -f "$env_file" ] || return 0
+    for suffix in $_KIT_LEGACY_CMS_SUFFIXES IMAGE; do
+        kit_env_has "CMS_$suffix" || continue
+        if kit_env_has "CONFIGURATION_SERVICE_$suffix"; then
+            kit_warn "$env_file has both CMS_$suffix and CONFIGURATION_SERVICE_$suffix; keeping" \
+                "CONFIGURATION_SERVICE_$suffix. Delete the unused CMS_$suffix line."
+            continue
+        fi
+        todo="$todo $suffix"
+    done
+    [ -n "$todo" ] || return 0
+
+    backup="$env_file.pre-beta2.bak"
+    if [ ! -e "$backup" ]; then
+        (umask 077 && cp "$env_file" "$backup") || kit_die "could not back up $env_file to $backup"
+    fi
+    for suffix in $todo; do
+        _kit_env_rename "CMS_$suffix" "CONFIGURATION_SERVICE_$suffix" ||
+            kit_die "could not update $env_file; the original is in $backup"
+    done
+    # An image pin is not a user setting: the old value is a beta1 image, which this kit's init
+    # steps and compose files are not built for. Use the kit's pinned image instead.
+    case "$todo " in
+        *" IMAGE "*)
+            image=$(grep -E '^CONFIGURATION_SERVICE_IMAGE=' "$example_file" | head -n1 | cut -d= -f2-)
+            [ -n "$image" ] || kit_die "CONFIGURATION_SERVICE_IMAGE not found in $example_file"
+            kit_env_set CONFIGURATION_SERVICE_IMAGE "$image"
+            ;;
+    esac
+    kit_log "Upgraded $env_file from 8.1.0-beta1: renamed CMS_<NAME> to CONFIGURATION_SERVICE_<NAME> for:"
+    kit_log " $todo. Existing values were kept. The previous file is saved as $backup."
+    case "$todo " in
+        *" IMAGE "*)
+            kit_log "CONFIGURATION_SERVICE_IMAGE now uses the image pinned in .env.example; check" \
+                "DMS_IMAGE and the other image pins there too."
+            ;;
+    esac
 }
 
 # ----------------------------------------------------------------------------------------------
@@ -287,9 +356,57 @@ _kit_existing_volumes() {
         2>/dev/null
 }
 
+# kit_check_db_volume -- PostgreSQL 18 images keep the cluster in /var/lib/postgresql/<major>/docker
+# and compose.core.yml mounts db-data at /var/lib/postgresql; pre-18 images keep it in
+# /var/lib/postgresql/data. Changing the image does not migrate anything: an 18 container on a
+# volume holding a pre-18 cluster (PG_VERSION at the volume root) would silently initialize a second,
+# empty cluster, and a pre-18 image on the new mount would not persist its data in db-data. So stop
+# here, before `up` can recreate the db container. Nothing is changed or deleted.
+kit_check_db_volume() {
+    local image major project volume pg_version
+    image=$(kit_env_get POSTGRES_IMAGE "")
+    [ -n "$image" ] || return 0 # Compose reports the missing variable itself
+    major=$(printf '%s' "$image" | sed -nE 's/^([^ ]*\/)?postgres:([0-9]+).*/\2/p')
+    if [ -n "$major" ] && [ "$major" -lt 18 ]; then
+        kit_die "POSTGRES_IMAGE in $(_kit_env_file) pins PostgreSQL $major ($image), but this kit mounts" \
+            "the database volume for PostgreSQL 18 and later, so the data would not be kept. If you have" \
+            "data to keep, back it up first. Then set POSTGRES_IMAGE to the value in .env.example and" \
+            "run ./reset.sh --force to DELETE the old database. See 'Upgrading from 8.1.0-beta1' in" \
+            "docs/troubleshooting.md. Nothing was changed."
+    fi
+    project=$(kit_env_get KIT_PROJECT_NAME "edfi-pilot")
+    volume="${project}_db-data"
+    docker volume inspect "$volume" >/dev/null 2>&1 || return 0
+    pg_version=$(docker run --rm --entrypoint sh -v "$volume:/pgdata:ro" "$image" \
+        -c 'cat /pgdata/PG_VERSION 2>/dev/null; exit 0' 2>/dev/null) ||
+        kit_die "Could not inspect the Docker volume $volume with $image to check its PostgreSQL" \
+            "version (is the image available and the network up?). Nothing was changed."
+    pg_version=$(printf '%s' "$pg_version" | tr -d '\r\n ')
+    [ -n "$pg_version" ] || return 0
+    kit_die "The Docker volume $volume holds a PostgreSQL $pg_version database in the layout used before" \
+        "PostgreSQL 18. The PostgreSQL 18 image in this kit cannot use it and would start an empty" \
+        "database next to it. Nothing was changed or deleted. To keep the data, back it up first and" \
+        "restore it after a reset. To discard it, run ./reset.sh --force --start. See 'Upgrading from" \
+        "8.1.0-beta1' in docs/troubleshooting.md."
+}
+
+# _kit_secret_keys -- the variable names in .env.example's secrets: everything under a section whose
+# header mentions "secrets", plus any name that looks like a password, secret, or encryption key.
+_kit_secret_keys() {
+    awk '
+        /^# ----------/ { inhdr = !inhdr; if (inhdr) section = ""; next }
+        inhdr { section = section " " tolower($0); next }
+        /^#/ || /^[[:space:]]*$/ { next }
+        {
+            key = $0; sub(/=.*/, "", key)
+            if (section ~ /secret/ || key ~ /PASSWORD|SECRET|ENCRYPTION_KEY/) print key
+        }
+    ' "$1"
+}
+
 # kit_ensure_env -- see the public API comment above.
 kit_ensure_env() {
-    local env_file example_file line key missing default_line volumes
+    local env_file example_file line key missing default_line volumes secret_keys
     local pg_pw svc_secret ro_secret admin_secret db_key id_key pgadmin_pw
     env_file=$(_kit_env_file)
     example_file="$KIT_DIR/.env.example"
@@ -338,6 +455,8 @@ kit_ensure_env() {
         return 0
     fi
 
+    kit_migrate_legacy_env
+
     missing=""
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in
@@ -351,8 +470,13 @@ kit_ensure_env() {
     if [ -n "$missing" ]; then
         kit_warn ".env exists but is missing variables present in .env.example:$missing"
         kit_warn "Add them to $env_file (existing values in .env are never changed automatically)."
-        kit_warn "Defaults from .env.example:"
+        kit_warn "Defaults from .env.example (secret defaults are not shown; set your own values):"
+        secret_keys=$(_kit_secret_keys "$example_file")
         for key in $missing; do
+            if _kit_in_list "$key" "$secret_keys"; then
+                kit_warn "  $key=<secret: set your own value>"
+                continue
+            fi
             default_line=$(grep -E "^${key}=" "$example_file" | head -n1)
             kit_warn "  $default_line"
         done

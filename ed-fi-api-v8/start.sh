@@ -77,6 +77,7 @@ fi
 kit_require_docker
 kit_require_compose
 kit_ensure_env
+kit_check_db_volume
 kit_check_public_origin
 
 if [ -n "$template" ]; then
