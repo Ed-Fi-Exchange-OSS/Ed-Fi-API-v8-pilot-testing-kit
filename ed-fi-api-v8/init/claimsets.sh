@@ -62,7 +62,8 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
+TOKEN=$(cs_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
+    edfi_admin_api/full_access)
 
 # ------------------------------------------------------------------------------------------------
 # canonicalize <file> -> normalized {claimSetName, resourceClaims[...]} on stdout, so an import body

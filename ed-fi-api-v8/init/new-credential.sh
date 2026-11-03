@@ -224,16 +224,17 @@ trap cleanup EXIT INT TERM
 # down for the "forgot to start the stack" case (FR-CRED-6).
 # ------------------------------------------------------------------------------------------------
 
-check_CONFIGURATION_SERVICE_ready() {
+check_cs_ready() {
     if ! kit_curl --connect-timeout 3 --max-time 5 -o /dev/null \
         --request POST "${CONFIG_BASE_URL}/connect/token" >/dev/null 2>&1; then
         die "$STEP_READY" "CS is not reachable: run ./start.sh (or start.ps1) first"
     fi
 }
 
-check_CONFIGURATION_SERVICE_ready
+check_cs_ready
 
-ADMIN_TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
+ADMIN_TOKEN=$(cs_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
+    edfi_admin_api/full_access)
 
 # ------------------------------------------------------------------------------------------------
 # Step c: uniqueness (FR-CRED-3). Checked, and only checked, before anything is created: an existing
@@ -241,7 +242,7 @@ ADMIN_TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGUR
 # ------------------------------------------------------------------------------------------------
 
 check_uniqueness() {
-    _cu_ids=$(CONFIGURATION_SERVICE_find_application_ids_by_name "$STEP_UNIQUE" "$ADMIN_TOKEN" "$NAME")
+    _cu_ids=$(cs_find_application_ids_by_name "$STEP_UNIQUE" "$ADMIN_TOKEN" "$NAME")
     if [ -n "$_cu_ids" ]; then
         die "$STEP_UNIQUE" \
             "an application named '$NAME' already exists in CS (id(s): $(printf '%s' "$_cu_ids" | tr '\n' ' ' | sed 's/ *$//')). Choose a different --name, or remove the existing application in CS first."
@@ -296,15 +297,17 @@ esac
 CLAIM_SET="${CLAIM_SET_ARG:-$DEFAULT_CLAIM_SET}"
 
 validate_claim_set() {
-    CONFIGURATION_SERVICE_request "$STEP_CLAIMSET" GET "${CONFIG_BASE_URL}/v3/claimSets?limit=500" "$ADMIN_TOKEN"
+    cs_request "$STEP_CLAIMSET" GET "${CONFIG_BASE_URL}/v3/claimSets?limit=500" "$ADMIN_TOKEN"
     if [ "$CONFIGURATION_SERVICE_REQUEST_STATUS" != "200" ]; then
         die "$STEP_CLAIMSET" \
-            "GET /v3/claimSets returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS: $(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
+            "GET /v3/claimSets returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS:" \
+            "$(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
     fi
     _vcs_found=$(jq -r --arg n "$CLAIM_SET" 'map(select(.claimSetName == $n)) | length' \
         "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
     if [ "$_vcs_found" = "0" ]; then
-        _vcs_valid=$(jq -r '[.[].claimSetName] | sort | join(", ")' "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
+        _vcs_valid=$(jq -r '[.[].claimSetName] | sort | join(", ")' \
+            "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
         rm -f "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
         die "$STEP_CLAIMSET" \
             "claim set '$CLAIM_SET' does not exist in CS. Valid claim sets: $_vcs_valid"
@@ -369,7 +372,7 @@ log "$STEP_DISCOVERY" "dataApiBaseUrl: $DATA_API_BASE_URL (from Discovery urls.d
 
 # ------------------------------------------------------------------------------------------------
 # Step g: one vendor per credential, named after --name (parses its id from the
-# Location header via CONFIGURATION_SERVICE_ensure_vendor). uri://gbisd.edu is added on the populated template so
+# Location header via cs_ensure_vendor). uri://gbisd.edu is added on the populated template so
 # writes against the sample data's namespace succeed too.
 # ------------------------------------------------------------------------------------------------
 
@@ -398,11 +401,11 @@ else
     log "$STEP_VENDOR" "namespace prefixes: $NAMESPACE_PREFIXES (default for the $TEMPLATE template)"
 fi
 
-VENDOR_ID=$(CONFIGURATION_SERVICE_ensure_vendor "$STEP_VENDOR" "$ADMIN_TOKEN" "$NAME" \
+VENDOR_ID=$(cs_ensure_vendor "$STEP_VENDOR" "$ADMIN_TOKEN" "$NAME" \
     "Pilot Kit Automation" "pilot-kit@example.com" "$NAMESPACE_PREFIXES")
 log "$STEP_VENDOR" "vendor '$NAME' id=$VENDOR_ID"
 
-DATASTORE_ID=$(CONFIGURATION_SERVICE_find_datastore_id "$STEP_APP" "$ADMIN_TOKEN" "Pilot Kit")
+DATASTORE_ID=$(cs_find_datastore_id "$STEP_APP" "$ADMIN_TOKEN" "Pilot Kit")
 
 APP_BODY=$(jq -n \
     --argjson vendorId "$VENDOR_ID" \
@@ -412,7 +415,7 @@ APP_BODY=$(jq -n \
     --argjson educationOrganizationIds "$EDORG_IDS_JSON" \
     '{vendorId: $vendorId, applicationName: $applicationName, claimSetName: $claimSetName,
       educationOrganizationIds: $educationOrganizationIds, dataStoreIds: [$dataStoreId]}')
-CONFIGURATION_SERVICE_create_application "$STEP_APP" "$ADMIN_TOKEN" "$APP_BODY"
+cs_create_application "$STEP_APP" "$ADMIN_TOKEN" "$APP_BODY"
 log "$STEP_APP" \
     "created application '$NAME' id=$CONFIGURATION_SERVICE_APPLICATION_ID claimSetName=$CLAIM_SET" \
     "educationOrganizationIds=$EDORG_IDS_JSON (secret not logged)"
@@ -492,7 +495,8 @@ esac
 VERIFY_URL="${INGRESS_BASE_URL}/${DMS_PATH_BASE}${VERIFY_PATH}"
 
 verify_first_request() {
-    _vfr_token=$(dms_token "$STEP_VERIFY" "$DMS_BASE_URL" "$CONFIGURATION_SERVICE_APPLICATION_KEY" "$CONFIGURATION_SERVICE_APPLICATION_SECRET")
+    _vfr_token=$(dms_token "$STEP_VERIFY" "$DMS_BASE_URL" "$CONFIGURATION_SERVICE_APPLICATION_KEY" \
+        "$CONFIGURATION_SERVICE_APPLICATION_SECRET")
 
     _vfr_attempt=1
     _vfr_max=3

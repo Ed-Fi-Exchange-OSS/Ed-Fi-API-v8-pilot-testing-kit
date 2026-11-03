@@ -51,7 +51,8 @@ APPLICATION_NAME="Pilot Kit Bootstrap (ADMIN)"
 DATASTORE_NAME="Pilot Kit"
 CLAIM_SET_NAME="EdFiSandbox"
 
-require_env "$STEP_ENV" CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET CONFIG_BASE_URL DMS_BASE_URL PUBLIC_ORIGIN DMS_PATH_BASE
+require_env "$STEP_ENV" CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET CONFIG_BASE_URL DMS_BASE_URL \
+    PUBLIC_ORIGIN DMS_PATH_BASE
 
 BOOTSTRAP_DIR="${BOOTSTRAP_DIR:-/bootstrap}"
 RUNTIME_DIR="${RUNTIME_DIR:-/runtime}"
@@ -94,7 +95,8 @@ SEA_ID=$(jq -r '[.[] | select(.resource == "stateEducationAgencies")]
 
 log "$STEP_BASELINE_FILE" "$BASELINE_FILE: $(jq 'length' "$BASELINE_FILE") records, SEA id=$SEA_ID"
 
-ADMIN_TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
+ADMIN_TOKEN=$(cs_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
+    edfi_admin_api/full_access)
 
 # ------------------------------------------------------------------------------------------------
 # Step b: the bootstrap vendor and application. See the file header for the reuse/rotate/create
@@ -103,7 +105,7 @@ ADMIN_TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGUR
 # ------------------------------------------------------------------------------------------------
 
 ensure_bootstrap_credential() {
-    _ebc_existing_ids=$(CONFIGURATION_SERVICE_find_application_ids_by_name "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$APPLICATION_NAME")
+    _ebc_existing_ids=$(cs_find_application_ids_by_name "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$APPLICATION_NAME")
 
     _ebc_valid=false
     if [ -n "$_ebc_existing_ids" ] && [ -f "$CRED_FILE" ]; then
@@ -139,7 +141,7 @@ ensure_bootstrap_credential() {
             "longer authenticates; rotating -- deleting and recreating the application. Anything using" \
             "the previous key/secret will need the new credentials file."
         for _ebc_id in $_ebc_existing_ids; do
-            _ebc_status=$(CONFIGURATION_SERVICE_delete_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_ebc_id")
+            _ebc_status=$(cs_delete_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_ebc_id")
             case "$_ebc_status" in
                 2??) log "$STEP_CREDENTIAL" "deleted application $_ebc_id" ;;
                 *) log "$STEP_CREDENTIAL" "WARNING: could not delete application $_ebc_id (HTTP $_ebc_status)" ;;
@@ -151,11 +153,11 @@ ensure_bootstrap_credential() {
             "creating a fresh application and overwriting the file"
     fi
 
-    _ebc_vendor_id=$(CONFIGURATION_SERVICE_ensure_vendor "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$VENDOR_COMPANY" \
+    _ebc_vendor_id=$(cs_ensure_vendor "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$VENDOR_COMPANY" \
         "Pilot Kit Automation" "pilot-kit@example.com" "uri://ed-fi.org")
     log "$STEP_CREDENTIAL" "vendor '$VENDOR_COMPANY' id=$_ebc_vendor_id"
 
-    _ebc_datastore_id=$(CONFIGURATION_SERVICE_find_datastore_id "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$DATASTORE_NAME")
+    _ebc_datastore_id=$(cs_find_datastore_id "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$DATASTORE_NAME")
 
     # The SEA (id 99) doesn't exist yet at this point -- education organization scoping in CS is by
     # id, not by a live reference, so scoping the application ahead of the record it names is fine.
@@ -167,7 +169,7 @@ ensure_bootstrap_credential() {
         --argjson seaId "$SEA_ID" \
         '{vendorId: $vendorId, applicationName: $applicationName, claimSetName: $claimSetName,
           educationOrganizationIds: [$seaId], dataStoreIds: [$dataStoreId]}')
-    CONFIGURATION_SERVICE_create_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_ebc_body"
+    cs_create_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_ebc_body"
 
     BOOT_KEY="$CONFIGURATION_SERVICE_APPLICATION_KEY"
     BOOT_SECRET="$CONFIGURATION_SERVICE_APPLICATION_SECRET"

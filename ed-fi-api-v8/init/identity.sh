@@ -38,7 +38,8 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 require_env "$STEP_ENV" \
-    CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET \
+    CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET \
+    CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET \
     CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY HASH_ITERATIONS \
     POSTGRES_DB_NAME POSTGRES_PASSWORD CONFIG_BASE_URL
 
@@ -83,7 +84,8 @@ validate_secret() {
                "from !@#\$%^&*()-_=+[]{}:;,.?"
 }
 
-for _var in CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET; do
+for _var in CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET \
+    CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET; do
     validate_secret "$_var"
 done
 unset _var
@@ -122,7 +124,7 @@ unset _role_len
 # before evaluating AND short-circuiting, so it errors instead of returning false.
 # ------------------------------------------------------------------------------------------------
 
-wait_for_CONFIGURATION_SERVICE_tables() {
+wait_for_cs_tables() {
     _wait_attempts=0
     _wait_max_attempts=30
     _wait_interval_seconds=2
@@ -147,7 +149,7 @@ SQL
     done
 }
 
-wait_for_CONFIGURATION_SERVICE_tables
+wait_for_cs_tables
 
 # ------------------------------------------------------------------------------------------------
 # Step c: the OpenIddict signing key, if no active row exists yet.
@@ -413,7 +415,8 @@ ensure_extra_role PilotKitAdmin "$DMS_CLAIMSET_RELOAD_ROLE"
 # ------------------------------------------------------------------------------------------------
 
 self_check() {
-    CONFIGURATION_SERVICE_token "$STEP_CHECK" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access >/dev/null
+    cs_token "$STEP_CHECK" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
+        edfi_admin_api/full_access >/dev/null
     log "$STEP_CHECK" "PilotKitAdmin token request succeeded"
 }
 

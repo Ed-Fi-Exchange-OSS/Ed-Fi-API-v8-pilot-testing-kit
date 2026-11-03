@@ -40,7 +40,8 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" edfi_admin_api/full_access)
+TOKEN=$(cs_token "$STEP_TOKEN" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
+    edfi_admin_api/full_access)
 
 # ------------------------------------------------------------------------------------------------
 # Step a: does a data store named "Pilot Kit" already exist? GET-before-POST, since CS has no

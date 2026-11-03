@@ -46,12 +46,12 @@ require_env() {
     unset _require_env_name _require_env_value
 }
 
-# CONFIGURATION_SERVICE_token <step> <client_id> <client_secret> <scope> -> the access_token on stdout.
+# cs_token <step> <client_id> <client_secret> <scope> -> the access_token on stdout.
 # Requests a client-credentials token from CS at CONFIG_BASE_URL/connect/token. Dies, naming
 # <step>, on a request that can't be sent, a non-200 response, or a 200 with no access_token. The
 # secret is a curl argument, so it's briefly visible in the container's process list; acceptable for
 # a local kit.
-CONFIGURATION_SERVICE_token() {
+cs_token() {
     _ct_step="$1"
     _ct_client_id="$2"
     _ct_client_secret="$3"
@@ -102,7 +102,7 @@ kit_psql() {
 # dms_token <step> <dms_base_url> <key> <secret> -> the access_token on stdout.
 # Requests a client-credentials token directly from Ed-Fi API v8 (Ed-Fi API v8 proxies to CS's /connect/token),
 # using HTTP Basic auth with an application's key and secret -- how BulkLoadClient
-# and every provisioned participant credential authenticate, unlike CONFIGURATION_SERVICE_token above (which POSTs
+# and every provisioned participant credential authenticate, unlike cs_token above (which POSTs
 # client_id/client_secret to CS directly, for the kit's own CS system clients). Dies, naming
 # <step>, on a request that can't be sent, a non-200 response, or a 200 with no access_token.
 dms_token() {
@@ -199,7 +199,7 @@ dms_discover_data_api_url() {
     printf '%s' "$_ddu_url"
 }
 
-# CONFIGURATION_SERVICE_request <step> <method> <url> <token> [curl-data-args...]
+# cs_request <step> <method> <url> <token> [curl-data-args...]
 # Issues one bearer-authenticated CS request. Only a request that can't be sent or times out dies
 # here (naming <step>); the caller decides which status codes are acceptable, since that differs by
 # call (create-if-absent, a 200-or-201 upsert, a DELETE whose failure is only ever a warning). Sets
@@ -208,7 +208,7 @@ dms_discover_data_api_url() {
 #   CONFIGURATION_SERVICE_REQUEST_BODY_FILE    path to a fresh temp file holding the response body
 #   CONFIGURATION_SERVICE_REQUEST_LOCATION     the Location header value, or empty if none was sent
 # The body file is never removed here -- callers that don't need it must rm it themselves.
-CONFIGURATION_SERVICE_request() {
+cs_request() {
     _crq_step="$1"
     _crq_method="$2"
     _crq_url="$3"
@@ -216,7 +216,8 @@ CONFIGURATION_SERVICE_request() {
     shift 4
     CONFIGURATION_SERVICE_REQUEST_BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/cms-request.XXXXXX")
     _crq_headers_file=$(mktemp "${TMPDIR:-/tmp}/cms-headers.XXXXXX")
-    CONFIGURATION_SERVICE_REQUEST_STATUS=$(kit_curl -o "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE" -D "$_crq_headers_file" -w '%{http_code}' \
+    CONFIGURATION_SERVICE_REQUEST_STATUS=$(kit_curl -o "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE" \
+        -D "$_crq_headers_file" -w '%{http_code}' \
         --request "$_crq_method" "$_crq_url" \
         --header "Authorization: Bearer $_crq_token" "$@") || {
         rm -f "$_crq_headers_file"
@@ -227,9 +228,9 @@ CONFIGURATION_SERVICE_request() {
     rm -f "$_crq_headers_file"
 }
 
-# CONFIGURATION_SERVICE_namespace_prefixes_cover <existing_csv> <required_csv> -> exit 0 if every comma-separated
+# cs_namespace_prefixes_cover <existing_csv> <required_csv> -> exit 0 if every comma-separated
 # prefix in <required_csv> is present (exact match, ignoring spaces) in <existing_csv>.
-CONFIGURATION_SERVICE_namespace_prefixes_cover() {
+cs_namespace_prefixes_cover() {
     _cnp_existing=",$(printf '%s' "$1" | tr -d ' '),"
     _cnp_saved_ifs=$IFS
     IFS=,
@@ -245,13 +246,13 @@ CONFIGURATION_SERVICE_namespace_prefixes_cover() {
     IFS=$_cnp_saved_ifs
 }
 
-# CONFIGURATION_SERVICE_ensure_vendor <step> <token> <company> <contact_name> <contact_email> <namespace_prefixes>
+# cs_ensure_vendor <step> <token> <company> <contact_name> <contact_email> <namespace_prefixes>
 # Finds a vendor by company name (CS has no upsert), or creates one and parses its id from the
 # Location header (POST /v3/vendors returns 201 with an empty body). A found vendor
 # whose namespacePrefixes don't cover <namespace_prefixes> is deleted and recreated; a failed delete
 # dies, because a too-narrow scope would 403 the whole load. DELETE /v3/vendors is unverified against
 # real CS. Prints the vendor id on stdout.
-CONFIGURATION_SERVICE_ensure_vendor() {
+cs_ensure_vendor() {
     _cev_step="$1"
     _cev_token="$2"
     _cev_company="$3"
@@ -259,25 +260,28 @@ CONFIGURATION_SERVICE_ensure_vendor() {
     _cev_contact_email="$5"
     _cev_namespace_prefixes="$6"
 
-    CONFIGURATION_SERVICE_request "$_cev_step" GET "${CONFIG_BASE_URL}/v3/vendors" "$_cev_token"
+    cs_request "$_cev_step" GET "${CONFIG_BASE_URL}/v3/vendors" "$_cev_token"
     if [ "$CONFIGURATION_SERVICE_REQUEST_STATUS" != "200" ]; then
-        die "$_cev_step" "GET /v3/vendors returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS: $(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
+        die "$_cev_step" \
+            "GET /v3/vendors returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS:" \
+            "$(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
     fi
     _cev_id=$(jq -r --arg company "$_cev_company" \
         'map(select(.company == $company)) | .[0].id // empty' "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
     _cev_existing_prefixes=$(jq -r --arg company "$_cev_company" \
-        'map(select(.company == $company)) | .[0].namespacePrefixes // empty' "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
+        'map(select(.company == $company)) | .[0].namespacePrefixes // empty' \
+        "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
     rm -f "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
 
     if [ -n "$_cev_id" ]; then
-        if CONFIGURATION_SERVICE_namespace_prefixes_cover "$_cev_existing_prefixes" "$_cev_namespace_prefixes"; then
+        if cs_namespace_prefixes_cover "$_cev_existing_prefixes" "$_cev_namespace_prefixes"; then
             printf '%s' "$_cev_id"
             return 0
         fi
         log "$_cev_step" \
             "vendor '$_cev_company' (id=$_cev_id) has namespacePrefixes='$_cev_existing_prefixes'," \
             "narrower than the required '$_cev_namespace_prefixes' -- deleting and recreating it"
-        CONFIGURATION_SERVICE_request "$_cev_step" DELETE "${CONFIG_BASE_URL}/v3/vendors/${_cev_id}" "$_cev_token"
+        cs_request "$_cev_step" DELETE "${CONFIG_BASE_URL}/v3/vendors/${_cev_id}" "$_cev_token"
         rm -f "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
         case "$CONFIGURATION_SERVICE_REQUEST_STATUS" in
             2??) ;;
@@ -296,29 +300,34 @@ CONFIGURATION_SERVICE_ensure_vendor() {
         --arg namespacePrefixes "$_cev_namespace_prefixes" \
         '{company: $company, contactName: $contactName, contactEmailAddress: $contactEmailAddress,
           namespacePrefixes: $namespacePrefixes}')
-    CONFIGURATION_SERVICE_request "$_cev_step" POST "${CONFIG_BASE_URL}/v3/vendors" "$_cev_token" \
+    cs_request "$_cev_step" POST "${CONFIG_BASE_URL}/v3/vendors" "$_cev_token" \
         --header "Content-Type: application/json" --data "$_cev_body"
     if [ "$CONFIGURATION_SERVICE_REQUEST_STATUS" != "201" ]; then
-        die "$_cev_step" "POST /v3/vendors returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS: $(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
+        die "$_cev_step" \
+            "POST /v3/vendors returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS:" \
+            "$(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
     fi
     rm -f "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
-    [ -n "$CONFIGURATION_SERVICE_REQUEST_LOCATION" ] || die "$_cev_step" "POST /v3/vendors returned 201 with no Location header"
+    [ -n "$CONFIGURATION_SERVICE_REQUEST_LOCATION" ] ||
+        die "$_cev_step" "POST /v3/vendors returned 201 with no Location header"
     _cev_id=${CONFIGURATION_SERVICE_REQUEST_LOCATION##*/}
-    [ -n "$_cev_id" ] || die "$_cev_step" "could not parse a vendor id from Location: $CONFIGURATION_SERVICE_REQUEST_LOCATION"
+    [ -n "$_cev_id" ] ||
+        die "$_cev_step" "could not parse a vendor id from Location: $CONFIGURATION_SERVICE_REQUEST_LOCATION"
     printf '%s' "$_cev_id"
 }
 
-# CONFIGURATION_SERVICE_find_datastore_id <step> <token> <name> -> the data store id on stdout. Dies if none is
+# cs_find_datastore_id <step> <token> <name> -> the data store id on stdout. Dies if none is
 # registered under that name -- callers of this run after init-datastore, so an absent data store
 # means something else is already broken.
-CONFIGURATION_SERVICE_find_datastore_id() {
+cs_find_datastore_id() {
     _cfd_step="$1"
     _cfd_token="$2"
     _cfd_name="$3"
-    CONFIGURATION_SERVICE_request "$_cfd_step" GET "${CONFIG_BASE_URL}/v3/dataStores" "$_cfd_token"
+    cs_request "$_cfd_step" GET "${CONFIG_BASE_URL}/v3/dataStores" "$_cfd_token"
     if [ "$CONFIGURATION_SERVICE_REQUEST_STATUS" != "200" ]; then
         die "$_cfd_step" \
-            "GET /v3/dataStores returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS: $(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
+            "GET /v3/dataStores returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS:" \
+            "$(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
     fi
     _cfd_id=$(jq -r --arg name "$_cfd_name" 'map(select(.name == $name)) | .[0].id // empty' \
         "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
@@ -327,57 +336,63 @@ CONFIGURATION_SERVICE_find_datastore_id() {
     printf '%s' "$_cfd_id"
 }
 
-# CONFIGURATION_SERVICE_create_application <step> <token> <body-json>
+# cs_create_application <step> <token> <body-json>
 # POSTs a full application body (vendorId, applicationName, claimSetName,
 # educationOrganizationIds, dataStoreIds, and so on -- this stays agnostic of the shape so other callers
 # can reuse it). On success, sets CONFIGURATION_SERVICE_APPLICATION_ID, CONFIGURATION_SERVICE_APPLICATION_KEY
-# and CONFIGURATION_SERVICE_APPLICATION_SECRET from the 201 response body -- the only place the secret is ever returned.
+# and CONFIGURATION_SERVICE_APPLICATION_SECRET from the 201 response body -- the only place the secret is
+# ever returned.
 # Dies naming <step> on any other status, or on a 201 missing any of the three.
-CONFIGURATION_SERVICE_create_application() {
+cs_create_application() {
     _cca_step="$1"
     _cca_token="$2"
     _cca_body="$3"
-    CONFIGURATION_SERVICE_request "$_cca_step" POST "${CONFIG_BASE_URL}/v3/applications" "$_cca_token" \
+    cs_request "$_cca_step" POST "${CONFIG_BASE_URL}/v3/applications" "$_cca_token" \
         --header "Content-Type: application/json" --data "$_cca_body"
     if [ "$CONFIGURATION_SERVICE_REQUEST_STATUS" != "201" ]; then
         die "$_cca_step" \
-            "POST /v3/applications returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS: $(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
+            "POST /v3/applications returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS:" \
+            "$(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
     fi
     CONFIGURATION_SERVICE_APPLICATION_ID=$(jq -r '.id // empty' "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
     CONFIGURATION_SERVICE_APPLICATION_KEY=$(jq -r '.key // empty' "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
-    CONFIGURATION_SERVICE_APPLICATION_SECRET=$(jq -r '.secret // empty' "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
+    CONFIGURATION_SERVICE_APPLICATION_SECRET=$(jq -r '.secret // empty' \
+        "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")
     rm -f "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
-    if [ -z "$CONFIGURATION_SERVICE_APPLICATION_ID" ] || [ -z "$CONFIGURATION_SERVICE_APPLICATION_KEY" ] || [ -z "$CONFIGURATION_SERVICE_APPLICATION_SECRET" ]; then
+    if [ -z "$CONFIGURATION_SERVICE_APPLICATION_ID" ] || [ -z "$CONFIGURATION_SERVICE_APPLICATION_KEY" ] ||
+        [ -z "$CONFIGURATION_SERVICE_APPLICATION_SECRET" ]; then
         die "$_cca_step" "POST /v3/applications returned 201 but was missing id, key, or secret"
     fi
 }
 
-# CONFIGURATION_SERVICE_find_application_ids_by_name <step> <token> <application_name> -> one id per line on stdout
+# cs_find_application_ids_by_name <step> <token> <application_name> -> one id per line on stdout
 # (nothing if none match). Used to find and remove leftover kit applications left behind by an
 # earlier failed or interrupted run, matched by name rather than trusting a saved id.
-CONFIGURATION_SERVICE_find_application_ids_by_name() {
+cs_find_application_ids_by_name() {
     _cfa_step="$1"
     _cfa_token="$2"
     _cfa_name="$3"
-    CONFIGURATION_SERVICE_request "$_cfa_step" GET "${CONFIG_BASE_URL}/v3/applications" "$_cfa_token"
+    cs_request "$_cfa_step" GET "${CONFIG_BASE_URL}/v3/applications" "$_cfa_token"
     if [ "$CONFIGURATION_SERVICE_REQUEST_STATUS" != "200" ]; then
         die "$_cfa_step" \
-            "GET /v3/applications returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS: $(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
+            "GET /v3/applications returned HTTP $CONFIGURATION_SERVICE_REQUEST_STATUS:" \
+            "$(cat "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE")"
     fi
-    jq -r --arg name "$_cfa_name" '.[] | select(.applicationName == $name) | .id' "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
+    jq -r --arg name "$_cfa_name" '.[] | select(.applicationName == $name) | .id' \
+        "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
     rm -f "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
 }
 
-# CONFIGURATION_SERVICE_delete_application <step> <token> <id> -> the HTTP status code on stdout.
+# cs_delete_application <step> <token> <id> -> the HTTP status code on stdout.
 # DELETE /v3/applications/{id} is not proven against real CS (not yet exercised).
 # This only sends the request and reports the status -- it never dies, so callers can choose to
 # warn (a credential that should have been deleted, but wasn't, isn't a load failure) or fail,
 # depending on context.
-CONFIGURATION_SERVICE_delete_application() {
+cs_delete_application() {
     _cda_step="$1"
     _cda_token="$2"
     _cda_id="$3"
-    CONFIGURATION_SERVICE_request "$_cda_step" DELETE "${CONFIG_BASE_URL}/v3/applications/${_cda_id}" "$_cda_token"
+    cs_request "$_cda_step" DELETE "${CONFIG_BASE_URL}/v3/applications/${_cda_id}" "$_cda_token"
     rm -f "$CONFIGURATION_SERVICE_REQUEST_BODY_FILE"
     printf '%s' "$CONFIGURATION_SERVICE_REQUEST_STATUS"
 }

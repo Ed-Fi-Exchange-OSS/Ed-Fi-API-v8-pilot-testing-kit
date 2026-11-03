@@ -379,7 +379,7 @@ else
     _assess_edorg_id=$(printf '%s' "$POPULATED_SEED_EDORG_IDS" | cut -d, -f1)
     _assess_school_id="$POPULATED_SAMPLE_SCHOOL_ID"
     _assess_name="Pilot Kit Smoke Test (Assessment)"
-    # Must start with one of the vendor's namespace prefixes (CONFIGURATION_SERVICE_ensure_vendor below):
+    # Must start with one of the vendor's namespace prefixes (cs_ensure_vendor below):
     # assessment metadata is authorized NamespaceBased. The vendor gets a custom prefix on top of
     # the populated defaults, and the assessment is written under it, exercising what
     # new-credential --namespace-prefix relies on.
@@ -400,7 +400,7 @@ else
             *) log assessment-write "WARNING: could not delete $1/$2 (HTTP $RESP_STATUS)" ;;
         esac
     }
-    _admin_token=$(CONFIGURATION_SERVICE_token assessment-write PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
+    _admin_token=$(cs_token assessment-write PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
         edfi_admin_api/full_access 2>"$WORK_DIR/assess-token.err") || {
         record_fail assessment-write \
             "could not get a PilotKitAdmin CS token: $(cat "$WORK_DIR/assess-token.err")"
@@ -408,14 +408,14 @@ else
     }
 
     if [ -n "$_admin_token" ]; then
-        _old_ids=$(CONFIGURATION_SERVICE_find_application_ids_by_name assessment-write "$_admin_token" "$_assess_name")
+        _old_ids=$(cs_find_application_ids_by_name assessment-write "$_admin_token" "$_assess_name")
         for _old_id in $_old_ids; do
-            CONFIGURATION_SERVICE_delete_application assessment-write "$_admin_token" "$_old_id" >/dev/null
+            cs_delete_application assessment-write "$_admin_token" "$_old_id" >/dev/null
         done
-        _assess_vendor_id=$(CONFIGURATION_SERVICE_ensure_vendor assessment-write "$_admin_token" "$_assess_name" \
+        _assess_vendor_id=$(cs_ensure_vendor assessment-write "$_admin_token" "$_assess_name" \
             "Pilot Kit Automation" "pilot-kit@example.com" \
             "uri://ed-fi.org,uri://gbisd.edu,$_assess_custom_prefix")
-        _assess_datastore_id=$(CONFIGURATION_SERVICE_find_datastore_id assessment-write "$_admin_token" "Pilot Kit")
+        _assess_datastore_id=$(cs_find_datastore_id assessment-write "$_admin_token" "Pilot Kit")
         _assess_body=$(jq -n \
             --argjson vendorId "$_assess_vendor_id" \
             --arg applicationName "$_assess_name" \
@@ -423,7 +423,7 @@ else
             --argjson dataStoreId "$_assess_datastore_id" \
             '{vendorId: $vendorId, applicationName: $applicationName, claimSetName: "AssessmentVendor",
               educationOrganizationIds: [$edorgId], dataStoreIds: [$dataStoreId]}')
-        CONFIGURATION_SERVICE_create_application assessment-write "$_admin_token" "$_assess_body"
+        cs_create_application assessment-write "$_admin_token" "$_assess_body"
         _assess_key="$CONFIGURATION_SERVICE_APPLICATION_KEY"
         _assess_secret="$CONFIGURATION_SERVICE_APPLICATION_SECRET"
         _assess_app_id="$CONFIGURATION_SERVICE_APPLICATION_ID"
@@ -505,7 +505,7 @@ else
                 "could not get a token for the throwaway assessment credential (HTTP $RESP_STATUS)"
         fi
 
-        _cleanup_status=$(CONFIGURATION_SERVICE_delete_application assessment-write "$_admin_token" "$_assess_app_id")
+        _cleanup_status=$(cs_delete_application assessment-write "$_admin_token" "$_assess_app_id")
         case "$_cleanup_status" in
             2??) ;;
             *)

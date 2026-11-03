@@ -239,12 +239,13 @@ _KIT_LOWER='abcdefghijklmnopqrstuvwxyz'
 _KIT_UPPER='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 _KIT_DIGIT='0123456789'
 # No '$': Compose interpolates it in .env values, which would corrupt the secret.
-# No '&' or '=': CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET (and the other CONFIGURATION_SERVICE_*_CLIENT_SECRET values generated from
-# this pool) is embedded unescaped into application/x-www-form-urlencoded request bodies built by
-# naive string concatenation -- see http/claimset-test.http's
-# "grant_type=client_credentials&client_id=...&client_secret={{CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET}}&scope=..."
-# line, where the VS Code REST Client extension substitutes the placeholder as literal text without
-# urlencoding it. A literal '&' in the secret would be read as a field separator, and a literal '='
+# No '&' or '=': CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET (and the other
+# CONFIGURATION_SERVICE_*_CLIENT_SECRET values generated from this pool) is embedded unescaped into
+# application/x-www-form-urlencoded request bodies built by naive string concatenation -- see
+# http/claimset-test.http's
+# "grant_type=client_credentials&client_id=...&client_secret={{CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET}}
+# &scope=..." line, where the VS Code REST Client extension substitutes the placeholder as literal text
+# without urlencoding it. A literal '&' in the secret would be read as a field separator, and a literal '='
 # would make everything after it in that chunk part of the wrong field, corrupting the request.
 # No '+' or '%' for the same reason: form decoding turns a literal '+' into a space and reads '%XX'
 # as a percent-escape, so either one would silently change the secret the server compares against.
@@ -253,7 +254,8 @@ _KIT_SPECIAL_FULL='!@#^*()-_[]{}:;,.?'
 # ADO.NET/Npgsql-style connection strings elsewhere in the kit (compose.core.yml
 # DatabaseSettings__DatabaseConnection and DATABASE_CONNECTION_STRING_ADMIN, and the connection
 # string init/datastore.sh registers with CS); a literal ';' in the password would truncate or
-# corrupt those. PGADMIN_DEFAULT_PASSWORD and CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY use the same safe pool
+# corrupt those. PGADMIN_DEFAULT_PASSWORD and
+# CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY use the same safe pool
 # out of caution, even though neither is known to need it today.
 _KIT_SPECIAL_SAFE='!@#^*()-_[]{}:,.?'
 
@@ -428,10 +430,14 @@ kit_ensure_env() {
         kit_log "No .env found. Creating one from .env.example with freshly generated local secrets."
         # Generate every secret before touching .env, so a failure can't leave a half-written file.
         pg_pw=$(kit_generate_secret 32 safe) || kit_die "could not generate POSTGRES_PASSWORD"
-        svc_secret=$(kit_generate_secret 48 full) || kit_die "could not generate CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET"
-        ro_secret=$(kit_generate_secret 48 full) || kit_die "could not generate CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET"
-        admin_secret=$(kit_generate_secret 48 full) || kit_die "could not generate CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET"
-        db_key=$(kit_generate_secret 32 safe) || kit_die "could not generate CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY"
+        svc_secret=$(kit_generate_secret 48 full) ||
+            kit_die "could not generate CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET"
+        ro_secret=$(kit_generate_secret 48 full) ||
+            kit_die "could not generate CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET"
+        admin_secret=$(kit_generate_secret 48 full) ||
+            kit_die "could not generate CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET"
+        db_key=$(kit_generate_secret 32 safe) ||
+            kit_die "could not generate CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY"
         id_key=$(openssl rand -base64 32 | tr -d '\n')
         [ -n "$id_key" ] || kit_die "could not generate CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY"
         pgadmin_pw=$(kit_generate_secret 32 safe) || kit_die "could not generate PGADMIN_DEFAULT_PASSWORD"
@@ -449,7 +455,8 @@ kit_ensure_env() {
         kit_env_set PGADMIN_DEFAULT_PASSWORD "$pgadmin_pw"
 
         kit_log "Generated local secrets for POSTGRES_PASSWORD, CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET,"
-        kit_log "CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET, CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET, CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY,"
+        kit_log "CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET, CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET,"
+        kit_log "CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY,"
         kit_log "CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY, and PGADMIN_DEFAULT_PASSWORD."
         kit_log "Values are never printed; see $env_file if you need one of them."
         return 0
@@ -785,13 +792,13 @@ kit_show_up_failure() {
 # ----------------------------------------------------------------------------------------------
 
 kit_print_urls() {
-    local origin dms_base CONFIGURATION_SERVICE_base
+    local origin dms_base cs_base
     origin=$(kit_env_get PUBLIC_ORIGIN "https://localhost")
     dms_base=$(kit_env_get DMS_PATH_BASE "api")
-    CONFIGURATION_SERVICE_base=$(kit_env_get CONFIGURATION_SERVICE_PATH_BASE "config")
+    cs_base=$(kit_env_get CONFIGURATION_SERVICE_PATH_BASE "config")
     kit_log "  API / Discovery:  $origin/$dms_base"
     kit_log "  Token endpoint:   $origin/$dms_base/oauth/token"
-    kit_log "  CS config:       $origin/$CONFIGURATION_SERVICE_base"
+    kit_log "  CS config:       $origin/$cs_base"
     kit_log "  Swagger UI:       $origin/swagger"
     kit_log "  PGAdmin:          $origin/pgadmin"
 }

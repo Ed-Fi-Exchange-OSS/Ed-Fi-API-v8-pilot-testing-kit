@@ -86,7 +86,7 @@ dms_token() { # <key> <secret>
 boot_token() { dms_token "$(jq -r .key .runtime/bootstrap-credentials.json)" "$(jq -r .secret .runtime/bootstrap-credentials.json)"; }
 cred_token() { dms_token "$(jq -r .key ".runtime/credentials/$1.json")" "$(jq -r .secret ".runtime/credentials/$1.json")"; }
 
-CONFIGURATION_SERVICE_token_status() { # <secret> -> HTTP status of a PilotKitAdmin token request
+cs_token_status() { # <secret> -> HTTP status of a PilotKitAdmin token request
     curl -sk -o /dev/null -w '%{http_code}' "$ORIGIN/config/connect/token" \
         --data-urlencode grant_type=client_credentials --data-urlencode client_id=PilotKitAdmin \
         --data-urlencode "client_secret=$1" --data-urlencode scope=edfi_admin_api/full_access
@@ -135,8 +135,10 @@ check_secrets_in_logs() { # T3: no .env secret appears in any container log
     say "secrets-in-logs"
     local logs v s leaks=""
     logs=$(docker compose logs --no-color 2>&1)
-    for v in POSTGRES_PASSWORD CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET \
-        CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY PGADMIN_DEFAULT_PASSWORD; do
+    for v in POSTGRES_PASSWORD CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET \
+        CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET \
+        CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY \
+        PGADMIN_DEFAULT_PASSWORD; do
         s=$(env_get "$v")
         [ -n "$s" ] || continue
         if printf '%s' "$logs" | grep -qF -- "$s"; then leaks="$leaks $v"; fi
@@ -396,11 +398,13 @@ check_bad_secret() { # T3/T4/FR-LIFE-9: invalid secret fails init-identity; the 
     env_set CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET short
     out=$(./start.sh 2>&1); rc=$?
     env_restore
-    printf '%s\n' "$out" | grep -E "FAILED|CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET|docker compose logs" | head -n 6 | sed 's/^/    /'
+    printf '%s\n' "$out" | grep -E "FAILED|CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET|docker compose logs" \
+        | head -n 6 | sed 's/^/    /'
     [ "$rc" -ne 0 ] && pass bad-secret-exit "start exited $rc" || fail bad-secret-exit "start exited 0"
     printf '%s' "$out" | grep -q "FAILED: init-identity" && pass bad-secret-service "report names init-identity" \
         || fail bad-secret-service "report doesn't name init-identity"
-    printf '%s' "$out" | grep -q "CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET must be" && pass bad-secret-variable "message names CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
+    printf '%s' "$out" | grep -q "CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET must be" \
+        && pass bad-secret-variable "message names CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
         || fail bad-secret-variable "message doesn't name the variable"
     restart_kit && note "restored; kit healthy" || fail bad-secret "./start.sh failed after restoring .env"
 }
@@ -414,15 +418,18 @@ check_secret_rotation() { # T3: changing a client secret in .env rotates only th
     env_backup
     env_set CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET "$new"
     restart_kit || fail secret-rotation "./start.sh failed with the new secret"
-    note "old secret -> $(CONFIGURATION_SERVICE_token_status "$old"), new secret -> $(CONFIGURATION_SERVICE_token_status "$new")"
-    [ "$(CONFIGURATION_SERVICE_token_status "$new")" = 200 ] && pass rotation-new-works "new secret gets a token" || fail rotation-new-works "new secret rejected"
-    [ "$(CONFIGURATION_SERVICE_token_status "$old")" != 200 ] && pass rotation-old-fails "old secret rejected" || fail rotation-old-fails "old secret still works"
+    note "old secret -> $(cs_token_status "$old"), new secret -> $(cs_token_status "$new")"
+    [ "$(cs_token_status "$new")" = 200 ] && pass rotation-new-works "new secret gets a token" \
+        || fail rotation-new-works "new secret rejected"
+    [ "$(cs_token_status "$old")" != 200 ] && pass rotation-old-fails "old secret rejected" \
+        || fail rotation-old-fails "old secret still works"
     ro_after=$(psql_q "SELECT \"ClientSecret\" FROM dmscs.\"OpenIddictApplication\" WHERE \"ClientId\" = 'CMSReadOnlyAccess'" | md5sum)
     [ "$ro_before" = "$ro_after" ] && pass rotation-others-unchanged "CMSReadOnlyAccess untouched" \
         || fail rotation-others-unchanged "CMSReadOnlyAccess hash changed"
     env_restore
-    restart_kit && [ "$(CONFIGURATION_SERVICE_token_status "$old")" = 200 ] && note "rotated back to the original secret" \
-        || fail secret-rotation "could not rotate back; check CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET in .env"
+    restart_kit && [ "$(cs_token_status "$old")" = 200 ] && note "rotated back to the original secret" \
+        || fail secret-rotation "could not rotate back;" \
+            "check CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET in .env"
 }
 
 check_bad_checksum() { # T8/T9: corrupted archive fails clearly; no marker; next start retries. RESETS.

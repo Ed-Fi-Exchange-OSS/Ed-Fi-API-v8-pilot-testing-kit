@@ -283,19 +283,19 @@ fi
 # application is recreated every attempt and deleted after a successful load, so the credential never
 # outlives initialization. Any
 # leftover application from an earlier failed run is deleted first, matched by name and before the
-# vendor is touched, so a vendor that needs recreating (CONFIGURATION_SERVICE_ensure_vendor) never has an application
+# vendor is touched, so a vendor that needs recreating (cs_ensure_vendor) never has an application
 # still pointing at it. Populated needs educationOrganizationIds for the sample LEA, ESC, PSI, and
 # community provider; minimal keeps the empty list.
 # ------------------------------------------------------------------------------------------------
 
 provision_seed_credential() {
-    ADMIN_TOKEN=$(CONFIGURATION_SERVICE_token "$STEP_CREDENTIAL" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
+    ADMIN_TOKEN=$(cs_token "$STEP_CREDENTIAL" PilotKitAdmin "$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
         edfi_admin_api/full_access)
 
-    _psc_leftover_ids=$(CONFIGURATION_SERVICE_find_application_ids_by_name \
+    _psc_leftover_ids=$(cs_find_application_ids_by_name \
         "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$APPLICATION_NAME")
     for _psc_leftover_id in $_psc_leftover_ids; do
-        _psc_status=$(CONFIGURATION_SERVICE_delete_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_psc_leftover_id")
+        _psc_status=$(cs_delete_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_psc_leftover_id")
         case "$_psc_status" in
             2??) log "$STEP_CREDENTIAL" "deleted leftover application $_psc_leftover_id" ;;
             *)
@@ -305,11 +305,11 @@ provision_seed_credential() {
         esac
     done
 
-    VENDOR_ID=$(CONFIGURATION_SERVICE_ensure_vendor "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$VENDOR_COMPANY" \
+    VENDOR_ID=$(cs_ensure_vendor "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$VENDOR_COMPANY" \
         "Pilot Kit Automation" "pilot-kit@example.com" "$SEED_NAMESPACE_PREFIXES")
     log "$STEP_CREDENTIAL" "vendor '$VENDOR_COMPANY' id=$VENDOR_ID"
 
-    DATASTORE_ID=$(CONFIGURATION_SERVICE_find_datastore_id "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$DATASTORE_NAME")
+    DATASTORE_ID=$(cs_find_datastore_id "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$DATASTORE_NAME")
 
     if [ "$DATABASE_TEMPLATE" = "populated" ]; then
         _psc_edorg_ids_json=$(printf '%s' "$POPULATED_SEED_EDORG_IDS" | jq -R -c 'split(",") | map(tonumber)')
@@ -325,7 +325,7 @@ provision_seed_credential() {
         '{vendorId: $vendorId, applicationName: $applicationName, claimSetName: "SeedLoader",
           educationOrganizationIds: $educationOrganizationIds, dataStoreIds: [$dataStoreId],
           profileIds: []}')
-    CONFIGURATION_SERVICE_create_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_psc_body"
+    cs_create_application "$STEP_CREDENTIAL" "$ADMIN_TOKEN" "$_psc_body"
     log "$STEP_CREDENTIAL" \
         "created application '$APPLICATION_NAME' id=$CONFIGURATION_SERVICE_APPLICATION_ID" \
         "educationOrganizationIds=$_psc_edorg_ids_json"
@@ -337,7 +337,8 @@ provision_seed_credential
 # Step e: an Ed-Fi API v8 token for the SeedLoader credential (Basic auth, unlike the CS system clients).
 # ------------------------------------------------------------------------------------------------
 
-DMS_TOKEN=$(dms_token "$STEP_TOKEN" "$DMS_BASE_URL" "$CONFIGURATION_SERVICE_APPLICATION_KEY" "$CONFIGURATION_SERVICE_APPLICATION_SECRET")
+DMS_TOKEN=$(dms_token "$STEP_TOKEN" "$DMS_BASE_URL" "$CONFIGURATION_SERVICE_APPLICATION_KEY" \
+    "$CONFIGURATION_SERVICE_APPLICATION_SECRET")
 log "$STEP_TOKEN" "obtained an Ed-Fi API v8 token for the SeedLoader credential"
 
 # ------------------------------------------------------------------------------------------------
@@ -476,7 +477,7 @@ verify_load
 
 # ------------------------------------------------------------------------------------------------
 # Step i: everything succeeded. Write the marker, delete the SeedLoader application (a warning, not a
-# failure, if that doesn't work -- see CONFIGURATION_SERVICE_delete_application), and log a summary.
+# failure, if that doesn't work -- see cs_delete_application), and log a summary.
 # ------------------------------------------------------------------------------------------------
 
 write_marker() {
@@ -490,7 +491,8 @@ SQL
 
 write_marker
 
-_cleanup_status=$(CONFIGURATION_SERVICE_delete_application "$STEP_CLEANUP" "$ADMIN_TOKEN" "$CONFIGURATION_SERVICE_APPLICATION_ID")
+_cleanup_status=$(cs_delete_application "$STEP_CLEANUP" "$ADMIN_TOKEN" \
+    "$CONFIGURATION_SERVICE_APPLICATION_ID")
 case "$_cleanup_status" in
     2??) log "$STEP_CLEANUP" "deleted the SeedLoader application ($CONFIGURATION_SERVICE_APPLICATION_ID)" ;;
     *)
