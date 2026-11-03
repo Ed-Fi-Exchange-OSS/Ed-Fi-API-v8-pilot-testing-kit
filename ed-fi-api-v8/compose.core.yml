@@ -106,7 +106,7 @@ services:
       AppSettings__MaskRequestBodyInLogs: ${MASK_REQUEST_BODY_IN_LOGS:-true}
       # FR-CLAIM-14: POST /${DMS_PATH_BASE}/management/reload-claimsets forces Ed-Fi API v8 to drop
       # its up-to-10-minute claim-set cache (ClaimSetsCacheExpirationSeconds); GET .../view-claimsets
-      # is mapped alongside it -- Ed-Fi API v8 gates both behind the same EnableManagementEndpoints switch, so
+      # is mapped alongside it -- Ed-Fi API v8 gates both behind the same ManagementEndpoints:Enabled switch, so
       # there is no way to enable one without the other. Both return 401/403 to any bearer that lacks
       # the exact role below; false unmaps the routes entirely (HTTP 404).
       # beta2 binds AppSettings:ManagementEndpoints:Enabled; the beta1-era EnableManagementEndpoints /
@@ -136,7 +136,7 @@ services:
       ConfigurationServiceSettings__ClientId: CMSReadOnlyAccess
       ConfigurationServiceSettings__Scope: edfi_admin_api/readonly_access
       ConfigurationServiceSettings__ClientSecret: ${CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET:?CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET must be set in .env}
-      ConfigurationServiceSettings__EncryptionKey: ${CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY}
+      ConfigurationServiceSettings__EncryptionKey: ${CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY:?CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY must be set in .env}
       JwtAuthentication__Authority: http://config:8081
       JwtAuthentication__Audience: account
       JwtAuthentication__MetadataAddress: http://config:8081/.well-known/openid-configuration

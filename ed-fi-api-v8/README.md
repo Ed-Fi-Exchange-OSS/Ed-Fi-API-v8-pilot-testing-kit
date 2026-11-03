@@ -134,8 +134,9 @@ cp .env.example .env
 If you copy it yourself, the secret values stay at `.env.example`'s published placeholders (for
 example `POSTGRES_PASSWORD=LocalDevOnly-Postgres-1!`) until you change them, because an existing
 `.env` is never modified automatically. Letting `start` create `.env` for you avoids that: it
-replaces `POSTGRES_PASSWORD`, `CS_SERVICE_CLIENT_SECRET`, `CS_READONLY_CLIENT_SECRET`,
-`CS_ADMIN_CLIENT_SECRET`, `CS_DATABASE_ENCRYPTION_KEY`, `CS_IDENTITY_ENCRYPTION_KEY`, and
+replaces `POSTGRES_PASSWORD`, `CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET`,
+`CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET`, `CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET`,
+`CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY`, `CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY`, and
 `PGADMIN_DEFAULT_PASSWORD` with values generated only for your own environment.
 
 ### 3. Start the kit
@@ -319,7 +320,7 @@ below, to your network.
 | --- | --- | --- |
 | `https://localhost/api` | Ed-Fi API v8 Discovery | path from `DMS_PATH_BASE` (default `api`) |
 | `https://localhost/api/oauth/token` | OAuth2 token endpoint | client-credentials grant only |
-| `https://localhost/config` | CS | path from `CS_PATH_BASE` (default `config`); manages vendors, applications, and credentials |
+| `https://localhost/config` | CS | path from `CONFIGURATION_SERVICE_PATH_BASE` (default `config`); manages vendors, applications, and credentials |
 | `https://localhost/swagger/` | Swagger UI | see [below](#things-worth-knowing-before-you-dig-in) -- needs internet access in your browser |
 | `https://localhost/pgadmin/` | PGAdmin | see [below](#things-worth-knowing-before-you-dig-in) -- prompts for the database password |
 | `https://localhost/data/v3/...` | rewritten to `/api/data/...` | toggle: `DATA_V3_REWRITE_ENABLED` (default `true`); see the caveat below |
@@ -332,10 +333,11 @@ only (it then 404s instead of rewriting). If your own client relies on it, the p
 specifically wants to know.
 
 **Default credentials.** On first run, `start` creates `.env` from `.env.example` and immediately
-replaces the published placeholder values for `POSTGRES_PASSWORD`, `CS_SERVICE_CLIENT_SECRET`,
-`CS_READONLY_CLIENT_SECRET`, `CS_ADMIN_CLIENT_SECRET`, `CS_DATABASE_ENCRYPTION_KEY`,
-`CS_IDENTITY_ENCRYPTION_KEY`, and `PGADMIN_DEFAULT_PASSWORD` with values generated only for your
-environment -- nothing in the repository is a value you'd actually authenticate with. Open your own
+replaces the published placeholder values for `POSTGRES_PASSWORD`,
+`CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET`, `CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET`,
+`CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET`, `CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY`,
+`CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY`, and `PGADMIN_DEFAULT_PASSWORD` with values generated only
+for your environment -- nothing in the repository is a value you'd actually authenticate with. Open your own
 `.env` to read one of them (for example, to log into PGAdmin below). `PGADMIN_DEFAULT_EMAIL` stays
 at its example value, `admin@example.com`, unless you change it.
 
@@ -434,7 +436,7 @@ credential gets `403`, and an unauthenticated request gets `401`. Get a token fo
 POST https://localhost/config/connect/token
 Content-Type: application/x-www-form-urlencoded
 
-grant_type=client_credentials&client_id=PilotKitAdmin&client_secret=<CS_ADMIN_CLIENT_SECRET from .env>&scope=edfi_admin_api/full_access
+grant_type=client_credentials&client_id=PilotKitAdmin&client_secret=<CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET from .env>&scope=edfi_admin_api/full_access
 ```
 
 `GET https://localhost/api/management/view-claimsets` (same bearer token) lists what Ed-Fi API currently
@@ -492,10 +494,10 @@ timing claims into these numbers beyond "how long will my own first start take."
   warnings/errors to `error.log` in the same directory. Both survive `docker compose down`, since
   they're on the host filesystem, not only in the container.
 - **Ed-Fi API and CS are not file-logged to that directory.** Read their logs with
-  `docker compose logs dms` / `docker compose logs CS` (or `docker logs`). Set `DMS_LOG_LEVEL` /
-  `CS_LOG_LEVEL` in `.env` (`Debug`, `Information`, `Warning`, `Error`) to change verbosity; Ed-Fi API
-  defaults to `Warning` because at `Information` it writes enough per request that Docker's own log
-  rotation can discard an error window within minutes during a populated-template load.
+  `docker compose logs dms` / `docker compose logs config` (or `docker logs`). Set `DMS_LOG_LEVEL` /
+  `CONFIGURATION_SERVICE_LOG_LEVEL` in `.env` (`Debug`, `Information`, `Warning`, `Error`) to change
+  verbosity; Ed-Fi API defaults to `Warning` because at `Information` it writes enough per request that
+  Docker's own log rotation can discard an error window within minutes during a populated-template load.
 - **A correlation ID ties a request together across services.** Send a `correlationid` request
   header yourself, or NGINX generates one; it appears in both the NGINX access log and the Ed-Fi API
   log lines for that request.
@@ -550,7 +552,7 @@ failures, each with the exact command or message to look for.
   3.11, `FR-MET-*`) are explicitly out of scope for this build; error counts, record counts, and
   timing are things you'll need to assemble yourself from the logs described above.
 - **Ed-Fi API and CS logs aren't written to the log directory, for now.** Only NGINX writes there. Read
-  Ed-Fi API and CS logs with `docker compose logs dms` / `docker compose logs CS` (see [Logs](#logs)).
+  Ed-Fi API and CS logs with `docker compose logs dms` / `docker compose logs config` (see [Logs](#logs)).
   Docker's log rotation can discard older lines.
 - **macOS and arm64 are untested.** Every build and measurement in this kit's verification was done
   on Windows, on an amd64 host. The kit has not been run on macOS, and the locally built `tools`
