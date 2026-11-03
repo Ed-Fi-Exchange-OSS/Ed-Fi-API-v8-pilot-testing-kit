@@ -54,7 +54,7 @@ participant machines with their normal network.
 | `EDFI_NUGET_FLAT_BASE` | `https://pkgs.dev.azure.com/ed-fi-alliance/Ed-Fi-Alliance-OSS/_packaging/EdFi/nuget/v3/flat2` | `PackageBaseAddress/3.0.0` from the feed's `index.json` |
 | `SCHEMATOOLS_VERSION` | `8.1.0-beta.0.1.32` | Version chosen for Ed-Fi API v8 `8.1.0-beta2` |
 | `SCHEMATOOLS_SHA256` | `30e61643c5a27b74d19e82931ec409c659ffd5b86fcbd9c049a0aa5f558cc059` | `sha256sum` of the downloaded `.nupkg` |
-| `BULKLOADCLIENT_VERSION` | `7.3.20162` | `$PinnedBulkLoadClientVersion` in Ed-Fi API v8 `eng/Package-Management.psm1` at commit `0abbaf2c`, which is the source commit of SchemaTools `8.1.0-beta.0.1.32` (from its nuspec) |
+| `BULKLOADCLIENT_VERSION` | `7.3.20162` | `$PinnedBulkLoadClientVersion` in Ed-Fi API v8 `eng/Package-Management.psm1` at commit `6a457c52`, which is the source commit of SchemaTools `8.1.0-beta.0.1.32` (from its nuspec) |
 | `BULKLOADCLIENT_SHA256` | `8149171a717297314a1b3429f59ca67259df9d458f8537fa6fa8d9170cf6390c` | `sha256sum` of the downloaded `.nupkg` |
 
 Why Ubuntu rather than Debian: .NET 10's default Linux images are Ubuntu 24.04 (`noble`), and MCR
@@ -142,7 +142,7 @@ The feed also carries BulkLoadClient `7.3.20185` (newer). It is not used, becaus
 
 This image was built on an amd64 Docker Desktop
 host. Both tools ran on `dotnet/runtime:10.0.12-noble`, the relocated `api-schema-tools` shim found
-the runtime, `ddl provision` produced a schema that Ed-Fi API v8 `8.0.1-alpha.0.164` accepts, and
+the runtime, `ddl provision` produced a schema that Ed-Fi API v8 `8.1.0-beta2` accepts, and
 BulkLoadClient loaded all DS 5.2 descriptors and the sample data directly against Ed-Fi API v8. The
 Dockerfile passes `hadolint` 2.15.1 with no findings; older releases such as 2.12.0 report `DL3006`
 on the `ARG`-based `FROM` lines, a false positive because the images are digest-pinned.

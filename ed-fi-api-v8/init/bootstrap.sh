@@ -253,11 +253,11 @@ else
 fi
 
 # ------------------------------------------------------------------------------------------------
-# Step d: a Ed-Fi API v8 token for the bootstrap credential (Basic auth).
+# Step d: an Ed-Fi API v8 token for the bootstrap credential (Basic auth).
 # ------------------------------------------------------------------------------------------------
 
 DMS_TOKEN=$(dms_token "$STEP_DMS_TOKEN" "$DMS_BASE_URL" "$BOOT_KEY" "$BOOT_SECRET")
-log "$STEP_DMS_TOKEN" "obtained a Ed-Fi API v8 token for the bootstrap credential"
+log "$STEP_DMS_TOKEN" "obtained an Ed-Fi API v8 token for the bootstrap credential"
 
 # ------------------------------------------------------------------------------------------------
 # Step e: the baseline records, in the file's order (SEA, then LEA, then the three schools -- every

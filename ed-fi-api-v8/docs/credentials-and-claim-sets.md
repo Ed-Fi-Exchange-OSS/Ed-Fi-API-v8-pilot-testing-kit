@@ -119,7 +119,7 @@ that starts with an existing prefix, such as `uri://ed-fi.org/MyVendor` or
 
 The same applies to a `studentAssessment` that references an assessment. If the referenced
 assessment is in a disallowed namespace, Ed-Fi API v8 currently returns `500` rather than `403`; see
-[Known limitations](../README.md#known-limitations) (upstream issue Ed-Fi API v8-1596).
+[Known limitations](../README.md#known-limitations) (upstream issue DMS-1596).
 
 ## Claim sets the kit uses
 

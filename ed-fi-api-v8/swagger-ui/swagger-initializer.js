@@ -155,7 +155,7 @@ window.onload = function () {
     // Ed-Fi API v8 advertises a default of 500 for the pageSize query parameter, so "Try it out" pre-fills
     // it. But Ed-Fi API v8 rejects pageSize without pageToken (400 "PageToken is required when pageSize is
     // specified."), so every GET failed until the user cleared the field. Drop the default so the
-    // field starts empty, and say why in its description. Remove once Ed-Fi API v8-1588 is fixed upstream.
+    // field starts empty, and say why in its description. Remove once DMS-1588 is fixed upstream.
     function pageSizeWithoutDefaultPlugin() {
         const operationMethods = new Set(['delete', 'get', 'head', 'options', 'patch', 'post', 'put', 'trace']);
         const note = 'Only valid together with pageToken; for the first page, use limit or leave this empty.';

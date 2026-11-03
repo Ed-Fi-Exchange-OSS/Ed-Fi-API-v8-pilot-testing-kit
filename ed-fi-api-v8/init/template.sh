@@ -334,11 +334,11 @@ provision_seed_credential() {
 provision_seed_credential
 
 # ------------------------------------------------------------------------------------------------
-# Step e: a Ed-Fi API v8 token for the SeedLoader credential (Basic auth, unlike the CS system clients).
+# Step e: an Ed-Fi API v8 token for the SeedLoader credential (Basic auth, unlike the CS system clients).
 # ------------------------------------------------------------------------------------------------
 
 DMS_TOKEN=$(dms_token "$STEP_TOKEN" "$DMS_BASE_URL" "$CONFIGURATION_SERVICE_APPLICATION_KEY" "$CONFIGURATION_SERVICE_APPLICATION_SECRET")
-log "$STEP_TOKEN" "obtained a Ed-Fi API v8 token for the SeedLoader credential"
+log "$STEP_TOKEN" "obtained an Ed-Fi API v8 token for the SeedLoader credential"
 
 # ------------------------------------------------------------------------------------------------
 # Step f: SchoolYearType, 1991-2037. v5.x models it as a closed XSD enumeration with no interchange,

@@ -1,4 +1,4 @@
-# Ed-Fi-API-v8-testing-kit Notices
+# Ed-Fi-API-v8-pilot-testing-kit Notices
 
 This product includes software developed at the [Ed-Fi
 Alliance](https://www.ed-fi.org).

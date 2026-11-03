@@ -28,7 +28,7 @@
 # rejected name leaves nothing behind.
 #
 # After creating the application, the credentials file is written first (so the secret, shown only
-# once by CS, is never lost even if the verification step below fails), then a Ed-Fi API v8 token and one
+# once by CS, is never lost even if the verification step below fails), then an Ed-Fi API v8 token and one
 # shape-appropriate GET are attempted through the same NGINX ingress a participant uses, proving the
 # credential works with no extra configuration (FR-CRED-1). A 401 is retried a few times with backoff
 # (none has been seen, but this keeps the door open for a slow first request); any other failure leaves the

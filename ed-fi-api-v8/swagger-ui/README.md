@@ -25,7 +25,7 @@ researched and may replace this directory later.
   required when pageSize is specified.`). Every GET collection request therefore failed until
   the user cleared the field. The `pageSizeWithoutDefaultPlugin` in `swagger-initializer.js`
   removes the default and adds a note to the parameter's description. Remove the plugin once
-  Ed-Fi API v8 stops advertising the default ([Ed-Fi API v8-1588](<https://edfi.atlassian.net/browse/Ed-Fi> API v8-1588)).
+  Ed-Fi API v8 stops advertising the default ([DMS-1588](https://edfi.atlassian.net/browse/DMS-1588)).
 - Everything else is unchanged: custom fields, custom domains, route-context plugins, and the
   single-operation grouping. The tenant and route-qualifier logic stays but is inert, because the
   kit uses neither.

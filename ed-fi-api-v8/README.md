@@ -40,8 +40,8 @@ defined the first time they're used; the full set of definitions is in the
   - [Feedback](#feedback)
 
 > [!TIP]
-> This source code uses "Ed-Fi API v8" as an acronym in many places. It stands for "Data Management Service",
-> which is internal name. This acronym may be replaced in future updates to this repository, as we
+> Some names in this source code still use "DMS", the internal acronym for "Data Management Service". This
+> acronym may be replaced in future updates to this repository, as we
 > want to emphasize the proper application name going forward: Ed-Fi API.
 
 ## Prerequisites
