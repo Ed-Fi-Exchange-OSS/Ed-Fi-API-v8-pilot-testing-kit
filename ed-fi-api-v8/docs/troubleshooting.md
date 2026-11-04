@@ -166,46 +166,33 @@ bring up every dependency on its own.
 
 ## Upgrading from 8.1.0-beta1
 
-The 8.1.0-beta2 kit changes the `.env` variable names and moves to PostgreSQL 18, so an existing
-beta1 checkout needs a few steps before `./start.sh` will work. `start`, `stop`, and `reset` do the
-safe part for you and refuse to continue on the rest; none of them deletes data on their own.
+There is no in-place upgrade. 8.1.0-beta2 renames the `.env` variables, changes every image pin, and
+moves to PostgreSQL 18, which cannot read a PostgreSQL 16 data volume. Delete the old kit and start
+over. This deletes all Ed-Fi API v8 and Configuration Service data in the kit.
 
-1. **Renamed keys.** Every `CMS_*` variable is now `CONFIGURATION_SERVICE_*` (for example
-   `CMS_ADMIN_CLIENT_SECRET` is now `CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET`). `start`, `stop`, and
-   `reset` rename them in your `.env` automatically, keeping your existing values -- the secrets and
-   encryption keys must stay the same, or the existing database can no longer be read. The previous
-   file is saved as `.env.pre-beta2.bak`. `CMS_IMAGE` is replaced by the kit's pinned
-   `CONFIGURATION_SERVICE_IMAGE`, not carried over. If you keep your own copy of `.env`, rename the keys
-   there the same way.
-2. **Image pins.** Compare the `*_IMAGE` lines in your `.env` with `.env.example` and update
-   `DMS_IMAGE` (beta1 images do not work with this kit) and `POSTGRES_IMAGE` (`postgres:16.x` must
-   become the `postgres:18.x` pin). The kit stops with a message if `POSTGRES_IMAGE` still pins a
-   version before 18.
-3. **Reset the database.** PostgreSQL 18 stores its data in a different place in the volume, and
-   changing the image does not migrate it; the kit stops if the `db-data` volume still has a
-   PostgreSQL 16 database. For a pilot kit, the simplest path is to discard it and start clean, which
-   deletes all Ed-Fi API v8 and CS data in the kit:
+1. **Reset.** This removes the containers and volumes:
 
    ```shell
    # Bash
-   ./reset.sh --force --start
+   ./reset.sh --force
 
    # PowerShell
-   .\reset.ps1 -Force -Start
+   .\reset.ps1 -Force
    ```
 
-   To keep the data, dump it first, from the old database, before you reset. This starts a temporary
-   PostgreSQL 16 container on the existing volume (use the project name from `KIT_PROJECT_NAME` in place
-   of `edfi-pilot`, and your old `POSTGRES_IMAGE` value); restoring the dump into the new database is
-   up to you and is not covered or tested by this kit:
+2. **Delete `.env`.** Reset keeps `.env`, and your beta1 file still pins beta1 images (including
+   `DMS_IMAGE`). With no volumes left, regenerating the secrets is safe.
 
    ```shell
-   docker run -d --name pg16-dump -v edfi-pilot_db-data:/var/lib/postgresql/data postgres:16.8-alpine
-   docker exec pg16-dump pg_dumpall -U postgres > backup.sql
-   docker rm -f pg16-dump
+   # Bash
+   rm .env
+
+   # PowerShell
+   Remove-Item .env
    ```
 
-4. **Fix `http/.env`.** If you created `http/.env` for the REST Client files, rename its `CMS_*` keys to
-   `CONFIGURATION_SERVICE_*` too (`http/claimset-test.http` reads
-   `CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET`), then re-run any request that failed on a missing
-   variable. Reset also replaces the credentials under `.runtime/`, so re-copy any you saved from there.
+3. **Delete `http/.env`** if you created one for the REST Client files. Copy `http/.env.example` again
+   after the new stack is running.
+4. **Start fresh.** Follow [Setup](../README.md#setup) from the beginning. Reset also replaced the
+   credentials under `.runtime/`, so any you saved from there are invalid.
+

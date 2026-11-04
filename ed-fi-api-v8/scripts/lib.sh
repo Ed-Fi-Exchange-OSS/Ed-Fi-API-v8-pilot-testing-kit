@@ -371,9 +371,9 @@ kit_check_db_volume() {
     major=$(printf '%s' "$image" | sed -nE 's/^([^ ]*\/)?postgres:([0-9]+).*/\2/p')
     if [ -n "$major" ] && [ "$major" -lt 18 ]; then
         kit_die "POSTGRES_IMAGE in $(_kit_env_file) pins PostgreSQL $major ($image), but this kit mounts" \
-            "the database volume for PostgreSQL 18 and later, so the data would not be kept. If you have" \
-            "data to keep, back it up first. Then set POSTGRES_IMAGE to the value in .env.example and" \
-            "run ./reset.sh --force to DELETE the old database. See 'Upgrading from 8.1.0-beta1' in" \
+            "the database volume for PostgreSQL 18 and later, so the data would not be kept. This looks" \
+            "like a beta1 .env, which also pins a beta1 DMS_IMAGE. Run ./reset.sh --force to DELETE the" \
+            "old database, delete .env, and start over. See 'Upgrading from 8.1.0-beta1' in" \
             "docs/troubleshooting.md. Nothing was changed."
     fi
     project=$(kit_env_get KIT_PROJECT_NAME "edfi-pilot")
@@ -387,9 +387,8 @@ kit_check_db_volume() {
     [ -n "$pg_version" ] || return 0
     kit_die "The Docker volume $volume holds a PostgreSQL $pg_version database in the layout used before" \
         "PostgreSQL 18. The PostgreSQL 18 image in this kit cannot use it and would start an empty" \
-        "database next to it. Nothing was changed or deleted. To keep the data, back it up first and" \
-        "restore it after a reset. To discard it, run ./reset.sh --force --start. See 'Upgrading from" \
-        "8.1.0-beta1' in docs/troubleshooting.md."
+        "database next to it. Nothing was changed or deleted. To discard it, run ./reset.sh --force," \
+        "delete .env, and start over. See 'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md."
 }
 
 # _kit_secret_keys -- the variable names in .env.example's secrets: everything under a section whose
