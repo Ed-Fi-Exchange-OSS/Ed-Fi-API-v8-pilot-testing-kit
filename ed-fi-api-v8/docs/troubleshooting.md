@@ -182,23 +182,19 @@ over. This deletes all Ed-Fi API v8 and Configuration Service data in the kit.
    Remove-Item .env
    ```
 
-2. **Reset.** Compose needs a current `.env` even to tear the stack down, so run `start` first. It
-   creates a new `.env` and then stops, without changing anything, because the old PostgreSQL 16
-   volume is still there. Then reset, which removes the containers and volumes and starts the new
-   stack:
+2. **Reset.** `reset` creates a new `.env` when one is missing, then removes the containers and
+   volumes:
 
    ```shell
    # Bash
-   ./start.sh
-   ./reset.sh --force --start
+   ./reset.sh --force
 
    # PowerShell
-   .\start.ps1
-   .\reset.ps1 -Force -Start
+   .\reset.ps1 -Force
    ```
 
 3. **Delete `http/.env`** if you created one for the REST Client files. Copy `http/.env.example` again
    after the new stack is running.
-4. **Continue with Setup.** Pick up [Setup](../README.md#setup) at the first step you haven't done.
+4. **Continue with Setup.** Follow [Setup](../README.md#setup) from the start.
    Reset also replaced the credentials under `.runtime/`, so any you saved from there are invalid.
 

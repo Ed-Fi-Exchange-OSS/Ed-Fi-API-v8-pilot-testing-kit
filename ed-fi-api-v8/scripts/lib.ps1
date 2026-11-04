@@ -388,7 +388,7 @@ function Assert-KitDatabaseVolume {
         Stop-KitWithError ("POSTGRES_IMAGE in $(Get-KitEnvFile) pins PostgreSQL $($Matches[2]) ($image), " +
             'but this kit mounts the database volume for PostgreSQL 18 and later, so the data would ' +
             'not be kept. This looks like a beta1 .env, which also pins a beta1 DMS_IMAGE. Delete .env ' +
-            'and run ./start.ps1 again, then follow ' +
+            'and run ./reset.ps1 -Force, then see ' +
             "'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md. Nothing was changed.")
     }
     $project = Get-KitEnvValue -Name 'KIT_PROJECT_NAME' -Default 'edfi-pilot'
@@ -406,7 +406,7 @@ function Assert-KitDatabaseVolume {
     Stop-KitWithError ("The Docker volume $volume holds a PostgreSQL $pgVersion database in the layout " +
         'used before PostgreSQL 18. The PostgreSQL 18 image in this kit cannot use it and would start ' +
         'an empty database next to it. Nothing was changed or deleted. To discard it, run ' +
-        './reset.ps1 -Force -Start. If this .env came from beta1, see ' +
+        './reset.ps1 -Force. If this .env came from beta1, see ' +
         "'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md first.")
 }
 

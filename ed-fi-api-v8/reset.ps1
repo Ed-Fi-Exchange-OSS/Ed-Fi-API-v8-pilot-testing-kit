@@ -56,6 +56,9 @@ if ($Help) {
 
 Assert-KitDockerRunning
 Assert-KitComposeAvailable
+# Compose needs every .env variable even to tear down, so create a missing .env (e.g. one just deleted
+# to upgrade from beta1) before `down`.
+Initialize-KitEnvFile
 
 if (-not $Force) {
     $isInteractive = [Environment]::UserInteractive -and -not ([Console]::IsInputRedirected)

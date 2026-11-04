@@ -306,8 +306,8 @@ kit_check_db_volume() {
     if [ -n "$major" ] && [ "$major" -lt 18 ]; then
         kit_die "POSTGRES_IMAGE in $(_kit_env_file) pins PostgreSQL $major ($image), but this kit mounts" \
             "the database volume for PostgreSQL 18 and later, so the data would not be kept. This looks" \
-            "like a beta1 .env, which also pins a beta1 DMS_IMAGE. Delete .env and run ./start.sh again, then" \
-            "follow 'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md. Nothing was changed."
+            "like a beta1 .env, which also pins a beta1 DMS_IMAGE. Delete .env and run ./reset.sh --force, then" \
+            "see 'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md. Nothing was changed."
     fi
     project=$(kit_env_get KIT_PROJECT_NAME "edfi-pilot")
     volume="${project}_db-data"
@@ -320,7 +320,7 @@ kit_check_db_volume() {
     [ -n "$pg_version" ] || return 0
     kit_die "The Docker volume $volume holds a PostgreSQL $pg_version database in the layout used before" \
         "PostgreSQL 18. The PostgreSQL 18 image in this kit cannot use it and would start an empty" \
-        "database next to it. Nothing was changed or deleted. To discard it, run ./reset.sh --force --start." \
+        "database next to it. Nothing was changed or deleted. To discard it, run ./reset.sh --force." \
         "If this .env came from beta1, see 'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md first."
 }
 

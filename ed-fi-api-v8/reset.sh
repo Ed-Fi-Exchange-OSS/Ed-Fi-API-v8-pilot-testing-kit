@@ -59,6 +59,9 @@ done
 
 kit_require_docker
 kit_require_compose
+# Compose needs every .env variable even to tear down, so create a missing .env (e.g. one just deleted
+# to upgrade from beta1) before `down`.
+kit_ensure_env
 
 if [ "$force" != true ]; then
     if [ ! -t 0 ]; then
