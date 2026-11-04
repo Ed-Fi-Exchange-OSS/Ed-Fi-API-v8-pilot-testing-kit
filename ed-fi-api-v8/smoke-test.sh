@@ -27,7 +27,7 @@ usage() {
 Usage: ./smoke-test.sh [--check-edorgs-only] [--debug] [--help]
 
 Runs the kit's non-interactive smoke test against the running stack, through NGINX, so routing and
-TLS are exercised too (not just DMS directly). Exercises the same requests http/smoke.http documents:
+TLS are exercised too (not just Ed-Fi API v8 directly). Exercises the same requests http/smoke.http documents:
 a token, Discovery, a descriptor read, a write and read-back, offset/limit and cursor paging, a
 change-query extract, an ETag update plus a stale-ETag 412, a deliberately invalid request, and (on
 the populated template only) an assessment-style reference write. Prints one PASS/FAIL/SKIP line per
@@ -35,7 +35,7 @@ step and a summary, and exits non-zero if any step failed.
 
 Options:
   --check-edorgs-only  Only run the http/edorgs.http vs bootstrap/baseline-edorgs.json consistency
-                        check (FR-EDORG-14) and exit -- skips every DMS/NGINX request.
+                        check (FR-EDORG-14) and exit -- skips every Ed-Fi API v8/NGINX request.
   --debug               Print each client key/secret pair the test reads or creates, to help
                         diagnose authorization failures. WARNING: this prints live secrets; do not
                         share the output.

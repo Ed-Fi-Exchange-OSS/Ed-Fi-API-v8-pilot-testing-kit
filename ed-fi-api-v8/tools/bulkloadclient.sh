@@ -5,6 +5,6 @@
 # See the LICENSE and NOTICES files in the project root for more information.
 
 # Installed in the tools image as /usr/local/bin/bulkloadclient. Equivalent to
-# `dotnet EdFi.BulkLoadClient.Console.dll "$@"`, which is how the DMS seed loader invokes it.
+# `dotnet EdFi.BulkLoadClient.Console.dll "$@"`, which is how the Ed-Fi API v8 seed loader invokes it.
 set -eu
 exec dotnet "${BULKLOADCLIENT_DLL:-/opt/bulkloadclient/EdFi.BulkLoadClient.Console.dll}" "$@"

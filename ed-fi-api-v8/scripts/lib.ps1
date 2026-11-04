@@ -34,10 +34,13 @@ Public API (everything else here is a private helper, prefixed with an underscor
                                           character. "safe" (default "full") drops ';' from the
                                           special-character pool -- see the comment below.
     New-KitBase64Key [-Bytes N]          base64 of N (default 32) cryptographically random bytes
+    Assert-KitDatabaseVolume             error, changing nothing, if POSTGRES_IMAGE pins PostgreSQL
+                                          before 18 or the db-data volume still holds a pre-18 cluster
     Initialize-KitEnvFile                create .env from .env.example with generated secrets if it
-                                          doesn't exist; otherwise warn (by name) about any variable
-                                          in .env.example that .env is missing. Never modifies an
-                                          existing .env value, and never prints a secret value.
+                                          doesn't exist; otherwise
+                                          warn (by name) about any variable in .env.example that .env
+                                          is missing. Never modifies an existing .env value, and never
+                                          prints a secret value or the template default of a secret.
                                           Refuses (error) to generate new secrets if .env is missing
                                           but this kit's Docker volumes still exist.
     Assert-KitPublicOrigin               error unless PUBLIC_ORIGIN's port matches HTTPS_PORT
@@ -241,7 +244,7 @@ function Set-KitEnvValue {
 # Secret generation. LOCAL DEVELOPMENT ONLY -- see .env.example's header. Every generated value has
 # at least one lowercase letter, one uppercase letter, one digit, and one special character, which
 # satisfies both the 32-128 character client-secret rule and the exactly-32-character
-# CMS_DATABASE_ENCRYPTION_KEY rule (call with the exact length wanted). Uses .NET's RNG (no host
+# CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY rule (call with the exact length wanted). Uses .NET's RNG (no host
 # .NET SDK is required -- RandomNumberGenerator ships in the PowerShell runtime itself).
 # ------------------------------------------------------------------------------------------------
 
@@ -249,10 +252,10 @@ $script:KitLower = 'abcdefghijklmnopqrstuvwxyz'
 $script:KitUpper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 $script:KitDigit = '0123456789'
 # No '$': Compose interpolates it in .env values, which would corrupt the secret.
-# No '&' or '=': CMS_ADMIN_CLIENT_SECRET (and the other CMS_*_CLIENT_SECRET values generated from
+# No '&' or '=': CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET (and the other CONFIGURATION_SERVICE_*_CLIENT_SECRET values generated from
 # this pool) is embedded unescaped into application/x-www-form-urlencoded request bodies built by
 # naive string concatenation -- see http/claimset-test.http's
-# "grant_type=client_credentials&client_id=...&client_secret={{CMS_ADMIN_CLIENT_SECRET}}&scope=..."
+# "grant_type=client_credentials&client_id=...&client_secret={{CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET}}&scope=..."
 # line, where the VS Code REST Client extension substitutes the placeholder as literal text without
 # urlencoding it. A literal '&' in the secret would be read as a field separator, and a literal '='
 # would make everything after it in that chunk part of the wrong field, corrupting the request.
@@ -262,8 +265,8 @@ $script:KitSpecialFull = '!@#^*()-_[]{}:;,.?'
 # Same set without ';'. POSTGRES_PASSWORD is embedded, unescaped, into semicolon-delimited
 # ADO.NET/Npgsql-style connection strings elsewhere in the kit (compose.core.yml
 # DatabaseSettings__DatabaseConnection and DATABASE_CONNECTION_STRING_ADMIN, and the connection
-# string init/datastore.sh registers with CMS); a literal ';' in the password would truncate or
-# corrupt those. PGADMIN_DEFAULT_PASSWORD and CMS_DATABASE_ENCRYPTION_KEY use the same safe pool
+# string init/datastore.sh registers with CS); a literal ';' in the password would truncate or
+# corrupt those. PGADMIN_DEFAULT_PASSWORD and CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY use the same safe pool
 # out of caution, even though neither is known to need it today.
 $script:KitSpecialSafe = '!@#^*()-_[]{}:,.?'
 
@@ -372,6 +375,61 @@ function Get-KitExistingVolumes {
     return @($names | Where-Object { $_ })
 }
 
+# Assert-KitDatabaseVolume -- PostgreSQL 18 images keep the cluster in /var/lib/postgresql/<major>/docker
+# and compose.core.yml mounts db-data at /var/lib/postgresql; pre-18 images keep it in
+# /var/lib/postgresql/data. Changing the image does not migrate anything: an 18 container on a
+# volume holding a pre-18 cluster (PG_VERSION at the volume root) would silently initialize a second,
+# empty cluster, and a pre-18 image on the new mount would not persist its data in db-data. So stop
+# here, before `up` can recreate the db container. Nothing is changed or deleted.
+function Assert-KitDatabaseVolume {
+    $image = Get-KitEnvValue -Name 'POSTGRES_IMAGE'
+    if (-not $image) { return } # Compose reports the missing variable itself
+    if ($image -match '^(\S*/)?postgres:(\d+)' -and [int]$Matches[2] -lt 18) {
+        Stop-KitWithError ("POSTGRES_IMAGE in $(Get-KitEnvFile) pins PostgreSQL $($Matches[2]) ($image), " +
+            'but this kit mounts the database volume for PostgreSQL 18 and later, so the data would ' +
+            'not be kept. This looks like a beta1 .env, which also pins a beta1 DMS_IMAGE. Delete .env ' +
+            'and run ./reset.ps1 -Force, then see ' +
+            "'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md. Nothing was changed.")
+    }
+    $project = Get-KitEnvValue -Name 'KIT_PROJECT_NAME' -Default 'edfi-pilot'
+    $volume = "${project}_db-data"
+    & docker volume inspect $volume *>$null
+    if ($LASTEXITCODE -ne 0) { return }
+    $found = & docker run --rm --entrypoint sh -v "${volume}:/pgdata:ro" $image `
+        -c 'cat /pgdata/PG_VERSION 2>/dev/null; exit 0' 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Stop-KitWithError ("Could not inspect the Docker volume $volume with $image to check its " +
+            'PostgreSQL version (is the image available and the network up?). Nothing was changed.')
+    }
+    $pgVersion = (($found -join '') -replace '[\r\n\s]', '')
+    if ([string]::IsNullOrEmpty($pgVersion)) { return }
+    Stop-KitWithError ("The Docker volume $volume holds a PostgreSQL $pgVersion database in the layout " +
+        'used before PostgreSQL 18. The PostgreSQL 18 image in this kit cannot use it and would start ' +
+        'an empty database next to it. Nothing was changed or deleted. To discard it, run ' +
+        './reset.ps1 -Force. If this .env came from beta1, see ' +
+        "'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md first.")
+}
+
+# Get-KitSecretKeys -Path P -- the variable names in .env.example's secrets: everything under a
+# section whose header mentions "secrets", plus any name that looks like a password, secret, or
+# encryption key.
+function Get-KitSecretKeys {
+    param([Parameter(Mandatory)][string] $Path)
+    $inHeader = $false
+    $section = ''
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ($line -match '^# ----------') {
+            $inHeader = -not $inHeader
+            if ($inHeader) { $section = '' }
+            continue
+        }
+        if ($inHeader) { $section += " $line"; continue }
+        if ($line -match '^\s*#' -or $line -match '^\s*$') { continue }
+        $key = ($line -split '=', 2)[0]
+        if ($section -match 'secret' -or $key -match 'PASSWORD|SECRET|ENCRYPTION_KEY') { $key }
+    }
+}
+
 function Initialize-KitEnvFile {
     $envFile = Get-KitEnvFile
     $exampleFile = Join-Path $script:KitDir '.env.example'
@@ -380,13 +438,13 @@ function Initialize-KitEnvFile {
     }
 
     if (-not (Test-Path -LiteralPath $envFile)) {
-        # New secrets would not match an existing database or the CMS state encrypted with the old
+        # New secrets would not match an existing database or the CS state encrypted with the old
         # keys, so refuse rather than generate them. Nothing is deleted here.
         $volumes = @(Get-KitExistingVolumes)
         if ($volumes.Count -gt 0) {
             Stop-KitWithError (".env is missing, but this kit's Docker volumes already exist: " +
                 ($volumes -join ', ') + '. Freshly generated secrets would not match the existing ' +
-                "database and encrypted CMS state. Restore the original .env into $script:KitDir, " +
+                "database and encrypted CS state. Restore the original .env into $script:KitDir, " +
                 'or run ./reset.ps1 to DELETE that data and start fresh.')
         }
         Write-KitLog 'No .env found. Creating one from .env.example with freshly generated local secrets.'
@@ -394,11 +452,11 @@ function Initialize-KitEnvFile {
         # Generate every secret before touching .env, so a failure can't leave a half-written file.
         $secrets = [ordered]@{
             POSTGRES_PASSWORD           = New-KitSecret -Length 32 -Pool safe
-            CMS_SERVICE_CLIENT_SECRET   = New-KitSecret -Length 48 -Pool full
-            CMS_READONLY_CLIENT_SECRET  = New-KitSecret -Length 48 -Pool full
-            CMS_ADMIN_CLIENT_SECRET     = New-KitSecret -Length 48 -Pool full
-            CMS_DATABASE_ENCRYPTION_KEY = New-KitSecret -Length 32 -Pool safe
-            CMS_IDENTITY_ENCRYPTION_KEY = New-KitBase64Key -Bytes 32
+            CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET   = New-KitSecret -Length 48 -Pool full
+            CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET  = New-KitSecret -Length 48 -Pool full
+            CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET     = New-KitSecret -Length 48 -Pool full
+            CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY = New-KitSecret -Length 32 -Pool safe
+            CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY = New-KitBase64Key -Bytes 32
             PGADMIN_DEFAULT_PASSWORD    = New-KitSecret -Length 32 -Pool safe
         }
 
@@ -415,9 +473,9 @@ function Initialize-KitEnvFile {
             Set-KitEnvValue -Name $name -Value $secrets[$name]
         }
 
-        Write-KitLog 'Generated local secrets for POSTGRES_PASSWORD, CMS_SERVICE_CLIENT_SECRET,'
-        Write-KitLog 'CMS_READONLY_CLIENT_SECRET, CMS_ADMIN_CLIENT_SECRET, CMS_DATABASE_ENCRYPTION_KEY,'
-        Write-KitLog 'CMS_IDENTITY_ENCRYPTION_KEY, and PGADMIN_DEFAULT_PASSWORD.'
+        Write-KitLog 'Generated local secrets for POSTGRES_PASSWORD, CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET,'
+        Write-KitLog 'CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET, CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET, CONFIGURATION_SERVICE_DATABASE_ENCRYPTION_KEY,'
+        Write-KitLog 'CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY, and PGADMIN_DEFAULT_PASSWORD.'
         Write-KitLog "Values are never printed; see $envFile if you need one of them."
         return
     }
@@ -434,8 +492,13 @@ function Initialize-KitEnvFile {
         Write-KitWarn (".env exists but is missing variables present in .env.example: " +
             ($missing -join ', '))
         Write-KitWarn "Add them to $envFile (existing values in .env are never changed automatically)."
-        Write-KitWarn 'Defaults from .env.example:'
+        Write-KitWarn 'Defaults from .env.example (secret defaults are not shown; set your own values):'
+        $secretKeys = @(Get-KitSecretKeys -Path $exampleFile)
         foreach ($key in $missing) {
+            if ($secretKeys -contains $key) {
+                Write-KitWarn "  $key=<secret: set your own value>"
+                continue
+            }
             $pattern = '^' + [regex]::Escape($key) + '='
             $defaultLine = (Select-String -LiteralPath $exampleFile -Pattern $pattern |
                 Select-Object -First 1).Line
@@ -752,10 +815,10 @@ function Show-KitUpFailure {
 function Show-KitUrls {
     $origin = Get-KitEnvValue -Name 'PUBLIC_ORIGIN' -Default 'https://localhost'
     $dmsBase = Get-KitEnvValue -Name 'DMS_PATH_BASE' -Default 'api'
-    $cmsBase = Get-KitEnvValue -Name 'CMS_PATH_BASE' -Default 'config'
+    $cmsBase = Get-KitEnvValue -Name 'CONFIGURATION_SERVICE_PATH_BASE' -Default 'config'
     Write-KitLog "  API / Discovery:  $origin/$dmsBase"
     Write-KitLog "  Token endpoint:   $origin/$dmsBase/oauth/token"
-    Write-KitLog "  CMS config:       $origin/$cmsBase"
+    Write-KitLog "  CS config:       $origin/$cmsBase"
     Write-KitLog "  Swagger UI:       $origin/swagger"
     Write-KitLog "  PGAdmin:          $origin/pgadmin"
 }

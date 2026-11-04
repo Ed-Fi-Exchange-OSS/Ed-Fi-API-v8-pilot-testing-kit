@@ -31,7 +31,7 @@ Usage: ./new-credential.sh --shape sis|assessment|warehouse --name <name>
                 to stateEducationAgency, localEducationAgency, and school), assessment -> AssessmentVendor,
                 warehouse -> DataWarehouse.
   --name        Required. Unique. Letters, digits, '.', '_', '-' only; 1-64 characters.
-  --claim-set   Optional override of the claim set implied by --shape. Must already exist in CMS.
+  --claim-set   Optional override of the claim set implied by --shape. Must already exist in CS.
   --edorg-ids   Optional comma-separated education organization ids. Defaults depend on --shape and
                 the loaded template: the bootstrapped SEA on minimal, the sample LEA on populated, or
                 none for warehouse credentials.

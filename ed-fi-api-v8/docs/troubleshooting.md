@@ -83,10 +83,10 @@ can be identified, use the two inspect commands at the end of the report.
 shows its plain, line-by-line progress output rather than its interactive progress display.
 
 **Expected startup order**, if you're trying to figure out where a failure sits in the chain: `db`
-and `config` (CMS) become healthy first, then identity seeding, then the schema and data store
+and `config` (CS) become healthy first, then identity seeding, then the schema and data store
 init steps, then the template load, then `dms`, then bootstrapping. A failure early in that chain
 (for example, `init-identity`) usually means a problem with a secret in `.env` -- `init-identity`
-validates each CMS client secret (32-128 characters, with a lowercase letter, an uppercase letter, a
+validates each CS client secret (32-128 characters, with a lowercase letter, an uppercase letter, a
 digit, and a special character) before touching the database, and fails naming the `.env` variable
 if one is invalid.
 
@@ -142,12 +142,12 @@ reporting success with a partially prepared environment. The step names you'll s
 `validate-env`, `validate-baseline-file`, `cms-token`, `bootstrap-credential`, `credentials-file`,
 `dms-token`, `baseline-records`, and `summary`. A failure naming:
 
-- `validate-env` or `cms-token` usually points at a CMS secret problem in `.env`, or CMS not yet
+- `validate-env` or `cms-token` usually points at a CS secret problem in `.env`, or CS not yet
   being reachable.
 - `validate-baseline-file` means `bootstrap/baseline-edorgs.json` is missing or malformed -- this
   should only happen if the repository checkout itself is damaged.
 - `baseline-records` names the specific education organization resource and natural key that failed,
-  with the HTTP status and response body CMS or DMS returned.
+  with the HTTP status and response body CS or Ed-Fi API v8 returned.
 
 To retry bootstrapping on its own, without a destructive reset, once the underlying problem is
 fixed:
@@ -163,3 +163,38 @@ fixed:
 This requires the stack to already be running (`./start.sh` first) -- otherwise it fails fast with
 a message telling you to start the stack first, rather than letting `docker compose run` silently
 bring up every dependency on its own.
+
+## Upgrading from 8.1.0-beta1
+
+There is no in-place upgrade. 8.1.0-beta2 renames the `.env` variables, changes every image pin, and
+moves to PostgreSQL 18, which cannot read a PostgreSQL 16 data volume. Delete the old kit and start
+over. This deletes all Ed-Fi API v8 and Configuration Service data in the kit.
+
+1. **Delete `.env`.** It still pins beta1 images (including `DMS_IMAGE`) and uses the old `CMS_*`
+   variable names, and `reset` keeps `.env`. Nothing in it is worth keeping: the reset below removes
+   every volume, so regenerating the secrets is safe.
+
+   ```shell
+   # Bash
+   rm .env
+
+   # PowerShell
+   Remove-Item .env
+   ```
+
+2. **Reset.** `reset` creates a new `.env` when one is missing, then removes the containers and
+   volumes:
+
+   ```shell
+   # Bash
+   ./reset.sh --force
+
+   # PowerShell
+   .\reset.ps1 -Force
+   ```
+
+3. **Delete `http/.env`** if you created one for the REST Client files. Copy `http/.env.example` again
+   after the new stack is running.
+4. **Continue with Setup.** Follow [Setup](../README.md#setup) from the start.
+   Reset also replaced the credentials under `.runtime/`, so any you saved from there are invalid.
+

@@ -1,14 +1,14 @@
 # Bootstrap claim sets
 
 Each `*.json` file here is the exact request body `init/claimsets.sh` sends to
-`POST {CONFIG_BASE_URL}/v3/claimSets/import` on CMS: `{claimSetName, resourceClaims[]}`, the same
+`POST {CONFIG_BASE_URL}/v3/claimSets/import` on CS: `{claimSetName, resourceClaims[]}`, the same
 shape `GET /v3/claimSets/{id}/export` returns. JSON can't carry comments, so this file documents
 intent that the files themselves cannot.
 
 ## `DataWarehouse.json`
 
 A **kit addition, not an Ed-Fi standard claim set** (it is not one of the 14 claim sets embedded in
-CMS -- `SISVendor`, `EdFiSandbox`, `RosterVendor`, and so on -- all of which are `_isSystemReserved`
+CS -- `SISVendor`, `EdFiSandbox`, `RosterVendor`, and so on -- all of which are `_isSystemReserved`
 and untouched by this file).
 
 It grants `Read` on every top-level branch of the DS 5.2 claims hierarchy: all resources, all
@@ -29,7 +29,7 @@ consumer.
 The DS 5.2 claims hierarchy has 16 root claims. This file grants Read and ReadChanges on 14 of
 them and deliberately excludes:
 
-- `services/identity` -- a service capability (managing CMS identity/registration), not education
+- `services/identity` -- a service capability (managing CS identity/registration), not education
   data. A warehouse has no business reading or being scoped by it.
 - `domains/tpdm` -- the TPDM extension is not loaded in this kit (`ClaimsOptions__DataStandardVersion`
   is DS 5.2 only), so granting it would be inert at best and misleading in a reviewable file.
@@ -43,7 +43,7 @@ Every `claimName` below was read directly from the Data Management Service sourc
 `src/config/backend/EdFi.DmsConfigurationService.Backend/Claims/Standards/ds52/Claims.json` in
 `Ed-Fi-Alliance-OSS/Data-Management-Service` (`main` branch, fetched 2026-09-29) lists 16 root
 entries under `claimsHierarchy`; this file uses all but the two above. Each root's short `name` is
-derived the same way CMS itself derives it for `/v3/claimSets/{id}/export`
+derived the same way CS itself derives it for `/v3/claimSets/{id}/export`
 (`ClaimSetRepository.BuildResourceClaims` -> `GetLeafName`, in
 `src/config/backend/EdFi.DmsConfigurationService.Backend.Postgresql/Repositories/ClaimSetRepository.cs`):
 the substring of `claimName` after its last `/`. Both are therefore confirmed against upstream
@@ -66,7 +66,7 @@ source, not the conventional-pattern fallback the task allowed.
 | `studentHealth` | `http://ed-fi.org/identity/claims/ed-fi/studentHealth` |
 | `snapshot` | `http://ed-fi.org/identity/claims/publishing/snapshot` |
 
-`init/claimsets.sh` is still the runtime guard: CMS reports any unrecognized `claimName` as a
+`init/claimsets.sh` is still the runtime guard: CS reports any unrecognized `claimName` as a
 non-empty `warnings` array on import, and the script fails rather than accept a partial grant.
 
 ## `SISVendorEdOrgWrite.json`
@@ -76,7 +76,7 @@ organization endpoints. A SIS loading its own education organizations got 403 be
 grants only `Read` on the `educationOrganizations` domain, and none of `stateEducationAgency`,
 `localEducationAgency`, or `school` is granted separately.
 
-Every root grant and authorization strategy below matches `SISVendor` as defined in the DMS ds52
+Every root grant and authorization strategy below matches `SISVendor` as defined in the Ed-Fi API v8 ds52
 `Claims.json` (`claimSets` entries on the `claimsHierarchy` roots), with these additions as children of
 `educationOrganizations`:
 
@@ -88,7 +88,7 @@ Every root grant and authorization strategy below matches `SISVendor` as defined
 
 `Read` is repeated on the children because a child claim's actions replace, rather than add to, what
 it would inherit from its parent. `Delete` is granted so a SIS can remove education organizations it
-loaded in error. DMS still rejects deleting an organization that other records reference.
+loaded in error. Ed-Fi API v8 still rejects deleting an organization that other records reference.
 `NoFurtherAuthorizationRequired` is required for
 `Create` -- a new organization is not yet inside any education organization the credential is scoped
 to, so a relationship-based strategy would reject it.
@@ -105,26 +105,26 @@ It is the default claim set for `./new-credential.sh --shape sis --name <your-na
 
 `init/claimsets.sh` imports every `*.json` file in this directory, in name order. A new file needs
 only `claimSetName` and a `resourceClaims` array in the same shape; the script validates both are
-present before calling CMS.
+present before calling CS.
 
 ## Applying claim set changes immediately
 
-DMS caches claim sets for up to 10 minutes (`ClaimSetsCacheExpirationSeconds`). A credential using a
-claim set that was just imported or changed while DMS was already running gets HTTP 500 "No security
+Ed-Fi API v8 caches claim sets for up to 10 minutes (`ClaimSetsCacheExpirationSeconds`). A credential using a
+claim set that was just imported or changed while Ed-Fi API v8 was already running gets HTTP 500 "No security
 metadata has been configured for this resource" until that cache refreshes -- unless the cache is
 forced to reload first (FR-CLAIM-14). `init/claimsets.sh` does this automatically for the
 files in this directory (see `reload_claim_set_if_running` there); this section is for reloading
-after a manual change made straight through CMS's API.
+after a manual change made straight through CS's API.
 
-Get a token for **PilotKitAdmin** (the kit's administrative CMS client; its secret is
-`CMS_ADMIN_CLIENT_SECRET` in `.env`) directly from CMS -- an ordinary integration credential cannot
+Get a token for **PilotKitAdmin** (the kit's administrative CS client; its secret is
+`CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET` in `.env`) directly from CS -- an ordinary integration credential cannot
 call this endpoint (see below):
 
 ```sh
 TOKEN=$(curl -sk -X POST https://localhost/config/connect/token \
     --data-urlencode grant_type=client_credentials \
     --data-urlencode client_id=PilotKitAdmin \
-    --data-urlencode client_secret="$CMS_ADMIN_CLIENT_SECRET" \
+    --data-urlencode client_secret="$CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET" \
     --data-urlencode scope=edfi_admin_api/full_access \
     | jq -r .access_token)
 ```

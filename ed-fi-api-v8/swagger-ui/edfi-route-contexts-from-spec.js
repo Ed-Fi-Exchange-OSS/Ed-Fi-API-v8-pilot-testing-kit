@@ -355,7 +355,7 @@ window.EdFiRouteContext = function () {
 
         let rewrittenUrl = url;
 
-        // Browser cannot resolve Docker DNS names; map DMS URLs onto the page's own origin
+        // Browser cannot resolve Docker DNS names; map Ed-Fi API v8 URLs onto the page's own origin
         // (the kit's NGINX ingress) while preserving the path.
         rewrittenUrl = window.EdfiCommonHelper.toSameOrigin(rewrittenUrl);
 

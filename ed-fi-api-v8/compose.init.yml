@@ -38,7 +38,7 @@ services:
     <<: *tools-image
     profiles: ["tools"]
     environment:
-      CMS_ADMIN_CLIENT_SECRET: ${CMS_ADMIN_CLIENT_SECRET:?CMS_ADMIN_CLIENT_SECRET must be set in .env}
+      CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET: ${CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET:?CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET must be set in .env}
       CONFIG_BASE_URL: http://config:8081
       DMS_BASE_URL: http://dms:8080/${DMS_PATH_BASE:-api}
       DMS_HEALTH_URL: http://dms:8080/health
@@ -48,7 +48,7 @@ services:
       INGRESS_CA_FILE: /ssl/server.crt
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://localhost}
       DMS_PATH_BASE: ${DMS_PATH_BASE:-api}
-      CMS_PATH_BASE: ${CMS_PATH_BASE:-config}
+      CONFIGURATION_SERVICE_PATH_BASE: ${CONFIGURATION_SERVICE_PATH_BASE:-config}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-edfi_datamanagementservice}
       DATABASE_TEMPLATE: ${DATABASE_TEMPLATE:-minimal}
@@ -64,18 +64,18 @@ services:
       - ./ssl:/ssl:ro
       - ./http:/http:ro
 
-  # Seeds the OpenIddict signing key and the CMS system clients, then requests a token to prove them.
-  # CMS creates its own tables, so this runs after CMS is healthy. See init/identity.sh.
+  # Seeds the OpenIddict signing key and the CS system clients, then requests a token to prove them.
+  # CS creates its own tables, so this runs after CS is healthy. See init/identity.sh.
   init-identity:
     <<: *tools-image
     command: ["sh", "/init/identity.sh"]
     environment:
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-edfi_datamanagementservice}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-      CMS_SERVICE_CLIENT_SECRET: ${CMS_SERVICE_CLIENT_SECRET:?CMS_SERVICE_CLIENT_SECRET must be set in .env}
-      CMS_READONLY_CLIENT_SECRET: ${CMS_READONLY_CLIENT_SECRET:?CMS_READONLY_CLIENT_SECRET must be set in .env}
-      CMS_ADMIN_CLIENT_SECRET: ${CMS_ADMIN_CLIENT_SECRET:?CMS_ADMIN_CLIENT_SECRET must be set in .env}
-      CMS_IDENTITY_ENCRYPTION_KEY: ${CMS_IDENTITY_ENCRYPTION_KEY:?CMS_IDENTITY_ENCRYPTION_KEY must be set in .env}
+      CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET: ${CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET:?CONFIGURATION_SERVICE_SERVICE_CLIENT_SECRET must be set in .env}
+      CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET: ${CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET:?CONFIGURATION_SERVICE_READONLY_CLIENT_SECRET must be set in .env}
+      CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET: ${CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET:?CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET must be set in .env}
+      CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY: ${CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY:?CONFIGURATION_SERVICE_IDENTITY_ENCRYPTION_KEY must be set in .env}
       # Must equal IdentitySettings__HashingIterations in compose.core.yml.
       HASH_ITERATIONS: "210000"
       # Must equal AppSettings__ManagementEndpoints__RequiredRole in compose.core.yml.
@@ -90,7 +90,7 @@ services:
     restart: "no"
     logging: *logging
 
-  # Copies the core DS 5.2 ApiSchema files from the DMS image into the api-schema volume. Root,
+  # Copies the core DS 5.2 ApiSchema files from the Ed-Fi API v8 image into the api-schema volume. Root,
   # because a fresh volume is root-owned; mounted at /stage so Docker's copy-up of the image's
   # core + TPDM /app/ApiSchema never happens. See init/api-schema.sh.
   init-api-schema:
@@ -105,12 +105,12 @@ services:
     restart: "no"
     logging: *logging
 
-  # Registers the "Pilot Kit" data store in CMS; DMS won't start without one. See init/datastore.sh.
+  # Registers the "Pilot Kit" data store in CS; Ed-Fi API v8 won't start without one. See init/datastore.sh.
   init-datastore:
     <<: *tools-image
     command: ["sh", "/init/datastore.sh"]
     environment:
-      CMS_ADMIN_CLIENT_SECRET: ${CMS_ADMIN_CLIENT_SECRET:?CMS_ADMIN_CLIENT_SECRET must be set in .env}
+      CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET: ${CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET:?CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET must be set in .env}
       # Direct, without the NGINX path base; /connect/token answers here.
       CONFIG_BASE_URL: http://config:8081
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
@@ -124,7 +124,7 @@ services:
     restart: "no"
     logging: *logging
 
-  # Provisions the DS 5.2 relational schema. Waits for CMS so the two never run DDL at the same
+  # Provisions the DS 5.2 relational schema. Waits for CS so the two never run DDL at the same
   # time. See init/provision-schema.sh.
   init-schema:
     <<: *tools-image
@@ -145,18 +145,18 @@ services:
     restart: "no"
     logging: *logging
 
-  # Imports the kit's claim sets (today, DataWarehouse and SISVendorEdOrgWrite) before DMS starts, so
-  # DMS never sees a claim set that isn't already in its cache. See init/claimsets.sh and bootstrap/claimsets/README.md.
+  # Imports the kit's claim sets (today, DataWarehouse and SISVendorEdOrgWrite) before Ed-Fi API v8 starts, so
+  # Ed-Fi API v8 never sees a claim set that isn't already in its cache. See init/claimsets.sh and bootstrap/claimsets/README.md.
   init-claimsets:
     <<: *tools-image
     command: ["sh", "/init/claimsets.sh"]
     environment:
-      CMS_ADMIN_CLIENT_SECRET: ${CMS_ADMIN_CLIENT_SECRET:?CMS_ADMIN_CLIENT_SECRET must be set in .env}
+      CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET: ${CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET:?CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET must be set in .env}
       # Direct, without the NGINX path base; /connect/token answers here.
       CONFIG_BASE_URL: http://config:8081
       CLAIMSETS_DIR: /claimsets
-      # FR-CLAIM-14: after re-importing a changed claim set, call DMS's reload endpoint so
-      # it is usable immediately on a stack where DMS is already running. Direct URLs, without the
+      # FR-CLAIM-14: after re-importing a changed claim set, call Ed-Fi API v8's reload endpoint so
+      # it is usable immediately on a stack where Ed-Fi API v8 is already running. Direct URLs, without the
       # NGINX path base; DMS_BASE_URL matches DMS_PATH_BASE so the two never drift apart.
       DMS_CLAIMSET_RELOAD_ENABLED: ${DMS_CLAIMSET_RELOAD_ENABLED:-true}
       DMS_BASE_URL: http://dms:8080/${DMS_PATH_BASE:-api}
@@ -171,7 +171,7 @@ services:
     logging: *logging
 
   # Loads the pinned Data Standard 5.2 "minimal" template (descriptors and SchoolYearType) through a
-  # throwaway SeedLoader credential. Runs after DMS itself, since it loads through the DMS REST API
+  # throwaway SeedLoader credential. Runs after Ed-Fi API v8 itself, since it loads through the Ed-Fi API v8 REST API
   # and BulkLoadClient. See init/template.sh.
   init-template:
     <<: *tools-image
@@ -181,7 +181,7 @@ services:
       # Direct, without the NGINX path base; matches DMS_PATH_BASE so the two never drift apart.
       DMS_BASE_URL: http://dms:8080/${DMS_PATH_BASE:-api}
       CONFIG_BASE_URL: http://config:8081
-      CMS_ADMIN_CLIENT_SECRET: ${CMS_ADMIN_CLIENT_SECRET:?CMS_ADMIN_CLIENT_SECRET must be set in .env}
+      CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET: ${CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET:?CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET must be set in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-edfi_datamanagementservice}
       DATA_STANDARD_URL: ${DATA_STANDARD_URL:?DATA_STANDARD_URL must be set in .env}
@@ -211,7 +211,7 @@ services:
     command: ["sh", "/init/bootstrap.sh"]
     user: "0:0"
     environment:
-      CMS_ADMIN_CLIENT_SECRET: ${CMS_ADMIN_CLIENT_SECRET:?CMS_ADMIN_CLIENT_SECRET must be set in .env}
+      CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET: ${CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET:?CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET must be set in .env}
       # Direct, without the NGINX path base; /connect/token answers here.
       CONFIG_BASE_URL: http://config:8081
       # Direct, without the NGINX path base; matches DMS_PATH_BASE so the two never drift apart.

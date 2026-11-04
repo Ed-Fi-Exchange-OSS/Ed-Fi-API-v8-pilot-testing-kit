@@ -18,9 +18,9 @@ NGINX is the kit's single HTTPS ingress. It uses the official `nginx` image (1.2
 
 | Path | Upstream | Prefix |
 | --- | --- | --- |
-| `/${DMS_PATH_BASE}` and `/${DMS_PATH_BASE}/` | `dms:8080` | kept (DMS runs with `PathBase`) |
-| `/${DMS_PATH_BASE}/management/reload-claimsets` (POST) and `/management/view-claimsets` (GET) | `dms:8080` | kept; no special handling -- matched by the `/${DMS_PATH_BASE}/` prefix location above like any other DMS path, so it gets the same rate limiting (when `RATE_LIMIT_ENABLED=true`) as the rest of DMS traffic and is untouched by the `/data/v3` rewrite |
-| `/${CMS_PATH_BASE}` and `/${CMS_PATH_BASE}/` | `config:8081` | kept (CMS runs with `PathBase`) |
+| `/${DMS_PATH_BASE}` and `/${DMS_PATH_BASE}/` | `dms:8080` | kept (Ed-Fi API v8 runs with `PathBase`) |
+| `/${DMS_PATH_BASE}/management/reload-claimsets` (POST) and `/management/view-claimsets` (GET) | `dms:8080` | kept; no special handling -- matched by the `/${DMS_PATH_BASE}/` prefix location above like any other Ed-Fi API v8 path, so it gets the same rate limiting (when `RATE_LIMIT_ENABLED=true`) as the rest of Ed-Fi API v8 traffic and is untouched by the `/data/v3` rewrite |
+| `/${CONFIGURATION_SERVICE_PATH_BASE}` and `/${CONFIGURATION_SERVICE_PATH_BASE}/` | `config:8081` | kept (CS runs with `PathBase`) |
 | `/swagger/` (`/swagger` 301s) | `swagger-ui:80` | stripped; `X-Forwarded-Prefix: /swagger` |
 | `/pgadmin/` (`/pgadmin` 301s) | `pgadmin:80` | kept (pgAdmin runs with `SCRIPT_NAME=/pgadmin`); WebSockets |
 | `/data/v3/...` | `dms:8080` as `/${DMS_PATH_BASE}/data/...` | rewritten if enabled; else JSON 404 |
@@ -37,10 +37,10 @@ even when a backend is down.
 | Variable | Default | Used by | Notes |
 | --- | --- | --- | --- |
 | `HTTPS_PORT` | none (required) | template | External port: redirects, `X-Forwarded-Port`/`-Host`. |
-| `DMS_PATH_BASE` | none (required) | template, script | Matches DMS `AppSettings__PathBase`. |
-| `CMS_PATH_BASE` | none (required) | template | Must match the CMS path base. Single segment. |
+| `DMS_PATH_BASE` | none (required) | template, script | Matches Ed-Fi API v8 `AppSettings__PathBase`. |
+| `CONFIGURATION_SERVICE_PATH_BASE` | none (required) | template | Must match the CS path base. Single segment. |
 | `DATA_V3_REWRITE_ENABLED` | `true` | script | `true` or `false`, case-insensitive. |
-| `RATE_LIMIT_ENABLED` | `false` | script | `true` or `false`. Limits DMS routes (and `/data/v3`) only. |
+| `RATE_LIMIT_ENABLED` | `false` | script | `true` or `false`. Limits Ed-Fi API v8 routes (and `/data/v3`) only. |
 | `RATE_LIMIT_RATE` | `50r/s` | script | `^[1-9][0-9]*r/[sm]$` |
 | `RATE_LIMIT_BURST` | `100` | script | Whole number; `0` = no burst. Excess gets 429 at once. |
 | `CLIENT_MAX_BODY_SIZE` | `100m` | script | NGINX size, such as `100m`. |
@@ -65,8 +65,8 @@ The image ignores a `.sh` hook that is not executable. Keep the Git mode at `100
 
 ## Error handling
 
-`proxy_intercept_errors` is off, so every status and body that DMS, CMS, Swagger UI, or PGAdmin
-returns passes through unchanged. That includes DMS's own 503 and problem-details responses.
+`proxy_intercept_errors` is off, so every status and body that Ed-Fi API v8, CS, Swagger UI, or PGAdmin
+returns passes through unchanged. That includes Ed-Fi API v8's own 503 and problem-details responses.
 `error_page` only applies to errors NGINX generates itself:
 
 - 502 (name not resolved, or connection refused) becomes a 503 `application/problem+json` body
@@ -80,12 +80,12 @@ returns passes through unchanged. That includes DMS's own 503 and problem-detail
 - `/var/log/nginx/kit/access.json` has one JSON object per request (`log_format kit_json`). It
   includes the time, request and correlation IDs, client address, method, raw request URI, the
   final `uri` and `args`, status, sizes, `request_time`, the upstream service, address, status, and
-  time, DMS's `Total-Count` header, whether the `/data/v3` rewrite applied, and the user agent.
+  time, Ed-Fi API v8's `Total-Count` header, whether the `/data/v3` rewrite applied, and the user agent.
   Query strings are logged, and they can contain identifiers. Authorization headers are not logged.
 - `/var/log/nginx/kit/error.log` has warnings and errors. Both logs also go to `docker logs`
   (access in the image's default text format).
 - The `correlationid` request header passes through to every upstream. If it is missing, NGINX
-  sends `$request_id`. DMS must run with `AppSettings__CorrelationIdHeader=correlationid`.
+  sends `$request_id`. Ed-Fi API v8 must run with `AppSettings__CorrelationIdHeader=correlationid`.
 
 ## Certificates
 
@@ -112,7 +112,7 @@ namespace, with a stub DNS server on `127.0.0.11` and stub backends. Tested beha
 
 Not tested:
 
-- real DMS, CMS, Swagger UI, and PGAdmin behind the proxy. In particular, Discovery URLs with a
+- real Ed-Fi API v8, CS, Swagger UI, and PGAdmin behind the proxy. In particular, Discovery URLs with a
   non-443 `HTTPS_PORT`: `X-Forwarded-Host` then includes the port, and `X-Forwarded-Port` is also
   sent.
 - PGAdmin WebSockets

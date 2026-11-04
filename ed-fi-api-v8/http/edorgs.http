@@ -19,7 +19,7 @@
 #   ('<your scoped id>') and the resource item's 'StateEducationAgencyId' value."
 #
 # Every POST below is safe to re-run, including against an environment where bootstrapping already
-# created the baseline: DMS upserts by natural key, so a repeat POST returns 200, not a duplicate
+# created the baseline: Ed-Fi API v8 upserts by natural key, so a repeat POST returns 200, not a duplicate
 # (FR-EDORG-6).
 
 @baseUrl = https://localhost/api
@@ -87,7 +87,7 @@ Content-Type: application/json
 
 ### 3. Elementary school, referencing the LEA above.
 # DS 5.2 naming quirk (bootstrap/README.md): schools use "educationOrganizationCategories", not
-# "categories" like the SEA/LEA above -- DMS rejects the wrong name with 400 "categories is required".
+# "categories" like the SEA/LEA above -- Ed-Fi API v8 rejects the wrong name with 400 "categories is required".
 POST {{dataApiBaseUrl}}/ed-fi/schools
 Authorization: Bearer {{token.response.body.access_token}}
 Content-Type: application/json

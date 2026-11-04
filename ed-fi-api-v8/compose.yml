@@ -6,7 +6,7 @@
 # Ed-Fi API v8 client integration pilot kit.
 #
 # The topology is split by concern so that changes to one area rarely touch another:
-#   compose.core.yml     PostgreSQL, Configuration Management Service (CMS), Ed-Fi API v8 (DMS)
+#   compose.core.yml     PostgreSQL, Configuration Service (CS), Ed-Fi API v8 (Ed-Fi API v8)
 #   compose.init.yml     the locally built tools image and the one-shot initialization services
 #   compose.ingress.yml  NGINX (the only published service), Swagger UI, PGAdmin
 #

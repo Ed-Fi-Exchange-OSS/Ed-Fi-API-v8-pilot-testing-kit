@@ -19,7 +19,7 @@
 # participant integration credential (FR-BOOT-7/8); use `new-credential` to provision a
 # scoped credential for authorization testing.
 #
-# @baseUrl is the DMS route through NGINX (PUBLIC_ORIGIN + DMS_PATH_BASE in .env; adjust both if you
+# @baseUrl is the Ed-Fi API v8 route through NGINX (PUBLIC_ORIGIN + DMS_PATH_BASE in .env; adjust both if you
 # changed either from their defaults). The baseline education organization ids below are the single
 # source of truth in bootstrap/baseline-edorgs.json (FR-EDORG-14) -- see http/edorgs.http.
 
@@ -40,7 +40,7 @@
 @highSchoolId = 990003
 
 # -------------------------------------------------------------------------------------------------
-# 1. Token (DMS proxies to CMS's /connect/token). HTTP Basic auth: REST Client
+# 1. Token (Ed-Fi API v8 proxies to CS's /connect/token). HTTP Basic auth: REST Client
 #    base64-encodes "Basic <username> <password>" itself, so {{key}}/{{secret}} are never hand-encoded.
 # -------------------------------------------------------------------------------------------------
 
@@ -72,7 +72,7 @@ Authorization: Bearer {{token.response.body.access_token}}
 # 4. Write and read-back (FR-TEST-1). FeederSchoolAssociation needs no descriptor and no student --
 #    just two schools that already exist in the baseline hierarchy -- so it is safe on a freshly
 #    bootstrapped minimal environment. Its natural key (schoolId + feederSchoolId + beginDate) is
-#    fixed, and DMS upserts on a matching natural key, so re-running this file returns 200 (not a
+#    fixed, and Ed-Fi API v8 upserts on a matching natural key, so re-running this file returns 200 (not a
 #    duplicate) instead of failing on a second run.
 # -------------------------------------------------------------------------------------------------
 
@@ -194,7 +194,7 @@ Content-Type: application/json
 # creates an assessment, then records a result for the existing student, reported at sample school
 # 255901001 under LEA 255901. Both POSTs are upserts, so re-running is safe.
 #
-# Left as-is, or run against the minimal template (which has no students at all), DMS returns
+# Left as-is, or run against the minimal template (which has no students at all), Ed-Fi API v8 returns
 # 400 or 409 naming the unresolved reference -- for example a message citing "StudentReference" or
 # "StudentUniqueId" -- rather than an ambiguous empty success (FR-TEST-8).
 # -------------------------------------------------------------------------------------------------

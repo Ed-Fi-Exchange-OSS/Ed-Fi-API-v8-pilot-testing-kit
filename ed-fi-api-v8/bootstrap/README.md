@@ -51,9 +51,9 @@ new tag's `Descriptors/*.xml` before changing it.
 
 Each entry is `{resource, naturalKey, body}`:
 
-- `resource`: the DMS resource collection name, for example `schools`.
+- `resource`: the Ed-Fi API v8 resource collection name, for example `schools`.
 - `naturalKey`: the fields `init/bootstrap.sh` uses for a `GET ${DMS_BASE_URL}/data/ed-fi/<resource>?<naturalKey>`
-  existence check before deciding whether to `POST` (DMS has no upsert for these resources).
+  existence check before deciding whether to `POST` (Ed-Fi API v8 has no upsert for these resources).
 - `body`: the exact `POST` body, in DS 5.2 field names.
 
 `init/bootstrap.sh` loops over the array generically and processes entries in file order, so adding
@@ -83,7 +83,7 @@ the record that references it. For example, a second LEA under the same SEA:
 ```
 
 DS 5.2 names the category array differently by resource: `categories` on state and local education
-agencies, but `educationOrganizationCategories` on schools. DMS rejects the wrong one with HTTP 400
+agencies, but `educationOrganizationCategories` on schools. Ed-Fi API v8 rejects the wrong one with HTTP 400
 (`categories is required`).
 
 Pick an ID that doesn't collide with an existing baseline or populated-template ID. Update

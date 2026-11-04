@@ -10,7 +10,7 @@
 # grade levels, or school categories; this script is how that claim stays checked instead of just
 # asserted.
 #
-# Pure text/JSON comparison -- no network calls, no CMS or DMS token, no database. Runnable alone:
+# Pure text/JSON comparison -- no network calls, no CS or Ed-Fi API v8 token, no database. Runnable alone:
 #   sh /init/check-edorgs-http.sh
 # with EDORGS_HTTP_FILE and BASELINE_FILE pointed at real files (defaults below assume the standard
 # container mounts: the tools service mounts bootstrap/ at /bootstrap and http/ at /http, so run it
@@ -24,7 +24,7 @@
 #      http/edorgs.http formatting each JSON body with the opening "{" and closing "}" alone on their
 #      own line, at column 0 -- as the file is written.
 #   3. Substitutes each "{{name}}" token in those bodies with the file variable's value, so what's
-#      compared is exactly what DMS would receive.
+#      compared is exactly what Ed-Fi API v8 would receive.
 #   4. Matches each bootstrap/baseline-edorgs.json entry to the http request with the same resource
 #      and the same naturalKey values, then compares the two bodies after canonicalizing (sorted
 #      object keys, sorted arrays) so formatting and array order never cause a false mismatch.

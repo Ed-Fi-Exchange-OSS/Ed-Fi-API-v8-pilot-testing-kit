@@ -7,7 +7,7 @@
 # Rendered to /etc/nginx/conf.d/snippets/kit-proxy.conf; nginx.conf only includes
 # conf.d/*.conf, so this subdirectory is never loaded at http level by itself.
 #
-# X-Forwarded-Prefix is deliberately not sent here: DMS, CMS, and PGAdmin receive the
+# X-Forwarded-Prefix is deliberately not sent here: Ed-Fi API v8, CS, and PGAdmin receive the
 # full path and know their own PathBase, so a prefix header could double it. Locations
 # that strip a prefix (Swagger UI) add X-Forwarded-Prefix themselves.
 

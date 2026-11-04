@@ -3,6 +3,9 @@ ods-api-compose/
 dms-compose/
 
 # Ed-Fi API v8 kit: local configuration, generated secrets, and runtime output
+# Any .env variant (including .env.pre-beta2.bak backups holding secrets), except the templates
+.env*
+!.env.example
 ed-fi-api-v8/.env
 ed-fi-api-v8/.runtime/*
 !ed-fi-api-v8/.runtime/.gitkeep

@@ -61,6 +61,7 @@ if ($Help) {
 Assert-KitDockerRunning
 Assert-KitComposeAvailable
 Initialize-KitEnvFile
+Assert-KitDatabaseVolume
 Assert-KitPublicOrigin
 
 if ($Template) {

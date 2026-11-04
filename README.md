@@ -3,7 +3,7 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Ed-Fi-Exchange-OSS/Ed-Fi-API-v8-pilot-testing-kit/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Ed-Fi-Exchange-OSS/Ed-Fi-API-v8-pilot-testing-kit)
 
 Tools to assist with local pilot testing of the [Ed-Fi API
-v8](https://docs.ed-fi.org/reference/ed-fi-api/8/), aka "DMS".
+v8](https://docs.ed-fi.org/reference/ed-fi-api/8/).
 
 * [Client Integration Pilot Test Proposal](./docs/client-integration-pilot-test-proposal.md)
 * [Ed-Fi API v8 Pilot Testing Kit](./ed-fi-api-v8/README.md) -- the Docker Compose environment
