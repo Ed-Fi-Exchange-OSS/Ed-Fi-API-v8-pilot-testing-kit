@@ -28,14 +28,10 @@
 #                                     lowercase, one uppercase, one digit, and one special character.
 #                                     "safe" (default "full") drops ';' from the special-character
 #                                     pool -- see the comment on _KIT_SPECIAL_SAFE below.
-#   kit_migrate_legacy_env           rename the 8.1.0-beta1 CMS_* variables in an existing .env to
-#                                     their CONFIGURATION_SERVICE_* names, keeping every value (so the
-#                                     existing secrets and encryption keys still match the database).
-#                                     Idempotent; backs .env up to .env.pre-beta2.bak first
 #   kit_check_db_volume              kit_die, changing nothing, if POSTGRES_IMAGE pins PostgreSQL
 #                                     before 18 or the db-data volume still holds a pre-18 cluster
 #   kit_ensure_env                   create .env from .env.example with generated secrets if it
-#                                     doesn't exist; otherwise migrate legacy names (above) and warn
+#                                     doesn't exist; otherwise warn
 #                                     (by name) about any variable in .env.example that .env is
 #                                     missing. Never modifies an existing .env value, and never prints
 #                                     a secret value or the template default of a secret.
@@ -164,68 +160,6 @@ kit_env_set() {
         printf '%s=%s\n' "$_kes_name" "$_kes_value" >>"$_kes_tmp"
     fi
     mv "$_kes_tmp" "$_kes_file"
-}
-
-# ----------------------------------------------------------------------------------------------
-# Upgrade from 8.1.0-beta1: renamed variables. Every `docker compose` command (even stop and down)
-# interpolates all of the Compose files, so an .env that still has CMS_* fails with "must be set in
-# .env" until these are renamed. Only the names change; the values are kept as they are.
-# ----------------------------------------------------------------------------------------------
-
-_KIT_LEGACY_CMS_SUFFIXES="PATH_BASE DB_MAX_POOL_SIZE SERVICE_CLIENT_SECRET READONLY_CLIENT_SECRET"
-_KIT_LEGACY_CMS_SUFFIXES="$_KIT_LEGACY_CMS_SUFFIXES ADMIN_CLIENT_SECRET DATABASE_ENCRYPTION_KEY"
-_KIT_LEGACY_CMS_SUFFIXES="$_KIT_LEGACY_CMS_SUFFIXES IDENTITY_ENCRYPTION_KEY"
-_KIT_LEGACY_CMS_SUFFIXES="$_KIT_LEGACY_CMS_SUFFIXES ALLOW_CLIENT_REGISTRATION LOG_LEVEL"
-
-# _kit_env_rename <OLD> <NEW> -- renames the OLD= line(s) to NEW= in .env, leaving the values alone.
-_kit_env_rename() {
-    local file tmp
-    file=$(_kit_env_file)
-    tmp=$(mktemp "${TMPDIR:-/tmp}/kit-env.XXXXXX")
-    sed -E "s/^$1=/$2=/" "$file" >"$tmp" && mv "$tmp" "$file"
-}
-
-kit_migrate_legacy_env() {
-    local env_file example_file suffix todo="" backup image
-    env_file=$(_kit_env_file)
-    example_file="$KIT_DIR/.env.example"
-    [ -f "$env_file" ] || return 0
-    for suffix in $_KIT_LEGACY_CMS_SUFFIXES IMAGE; do
-        kit_env_has "CMS_$suffix" || continue
-        if kit_env_has "CONFIGURATION_SERVICE_$suffix"; then
-            kit_warn "$env_file has both CMS_$suffix and CONFIGURATION_SERVICE_$suffix; keeping" \
-                "CONFIGURATION_SERVICE_$suffix. Delete the unused CMS_$suffix line."
-            continue
-        fi
-        todo="$todo $suffix"
-    done
-    [ -n "$todo" ] || return 0
-
-    backup="$env_file.pre-beta2.bak"
-    if [ ! -e "$backup" ]; then
-        (umask 077 && cp "$env_file" "$backup") || kit_die "could not back up $env_file to $backup"
-    fi
-    for suffix in $todo; do
-        _kit_env_rename "CMS_$suffix" "CONFIGURATION_SERVICE_$suffix" ||
-            kit_die "could not update $env_file; the original is in $backup"
-    done
-    # An image pin is not a user setting: the old value is a beta1 image, which this kit's init
-    # steps and compose files are not built for. Use the kit's pinned image instead.
-    case "$todo " in
-        *" IMAGE "*)
-            image=$(grep -E '^CONFIGURATION_SERVICE_IMAGE=' "$example_file" | head -n1 | cut -d= -f2-)
-            [ -n "$image" ] || kit_die "CONFIGURATION_SERVICE_IMAGE not found in $example_file"
-            kit_env_set CONFIGURATION_SERVICE_IMAGE "$image"
-            ;;
-    esac
-    kit_log "Upgraded $env_file from 8.1.0-beta1: renamed CMS_<NAME> to CONFIGURATION_SERVICE_<NAME> for:"
-    kit_log " $todo. Existing values were kept. The previous file is saved as $backup."
-    case "$todo " in
-        *" IMAGE "*)
-            kit_log "CONFIGURATION_SERVICE_IMAGE now uses the image pinned in .env.example; check" \
-                "DMS_IMAGE and the other image pins there too."
-            ;;
-    esac
 }
 
 # ----------------------------------------------------------------------------------------------
@@ -372,9 +306,8 @@ kit_check_db_volume() {
     if [ -n "$major" ] && [ "$major" -lt 18 ]; then
         kit_die "POSTGRES_IMAGE in $(_kit_env_file) pins PostgreSQL $major ($image), but this kit mounts" \
             "the database volume for PostgreSQL 18 and later, so the data would not be kept. This looks" \
-            "like a beta1 .env, which also pins a beta1 DMS_IMAGE. Run ./reset.sh --force to DELETE the" \
-            "old database, delete .env, and start over. See 'Upgrading from 8.1.0-beta1' in" \
-            "docs/troubleshooting.md. Nothing was changed."
+            "like a beta1 .env, which also pins a beta1 DMS_IMAGE. Delete .env and run ./start.sh again, then" \
+            "follow 'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md. Nothing was changed."
     fi
     project=$(kit_env_get KIT_PROJECT_NAME "edfi-pilot")
     volume="${project}_db-data"
@@ -387,8 +320,8 @@ kit_check_db_volume() {
     [ -n "$pg_version" ] || return 0
     kit_die "The Docker volume $volume holds a PostgreSQL $pg_version database in the layout used before" \
         "PostgreSQL 18. The PostgreSQL 18 image in this kit cannot use it and would start an empty" \
-        "database next to it. Nothing was changed or deleted. To discard it, run ./reset.sh --force," \
-        "delete .env, and start over. See 'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md."
+        "database next to it. Nothing was changed or deleted. To discard it, run ./reset.sh --force --start." \
+        "If this .env came from beta1, see 'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md first."
 }
 
 # _kit_secret_keys -- the variable names in .env.example's secrets: everything under a section whose
@@ -460,8 +393,6 @@ kit_ensure_env() {
         kit_log "Values are never printed; see $env_file if you need one of them."
         return 0
     fi
-
-    kit_migrate_legacy_env
 
     missing=""
     while IFS= read -r line || [ -n "$line" ]; do

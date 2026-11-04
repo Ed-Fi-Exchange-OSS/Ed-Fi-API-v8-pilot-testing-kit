@@ -41,7 +41,6 @@ done
 
 kit_require_docker
 kit_require_compose
-kit_migrate_legacy_env
 
 kit_compose stop
 

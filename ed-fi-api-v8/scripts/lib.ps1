@@ -34,15 +34,10 @@ Public API (everything else here is a private helper, prefixed with an underscor
                                           character. "safe" (default "full") drops ';' from the
                                           special-character pool -- see the comment below.
     New-KitBase64Key [-Bytes N]          base64 of N (default 32) cryptographically random bytes
-    Convert-KitLegacyEnv                 rename the 8.1.0-beta1 CMS_* variables in an existing .env
-                                          to their CONFIGURATION_SERVICE_* names, keeping every value
-                                          (so the existing secrets and encryption keys still match the
-                                          database). Idempotent; backs .env up to .env.pre-beta2.bak
-                                          first
     Assert-KitDatabaseVolume             error, changing nothing, if POSTGRES_IMAGE pins PostgreSQL
                                           before 18 or the db-data volume still holds a pre-18 cluster
     Initialize-KitEnvFile                create .env from .env.example with generated secrets if it
-                                          doesn't exist; otherwise migrate legacy names (above) and
+                                          doesn't exist; otherwise
                                           warn (by name) about any variable in .env.example that .env
                                           is missing. Never modifies an existing .env value, and never
                                           prints a secret value or the template default of a secret.
@@ -246,73 +241,6 @@ function Set-KitEnvValue {
 }
 
 # ------------------------------------------------------------------------------------------------
-# Upgrade from 8.1.0-beta1: renamed variables. Every `docker compose` command (even stop and down)
-# interpolates all of the Compose files, so an .env that still has CMS_* fails with "must be set in
-# .env" until these are renamed. Only the names change; the values are kept as they are.
-# ------------------------------------------------------------------------------------------------
-
-$script:KitLegacyCmsSuffixes = @('PATH_BASE', 'DB_MAX_POOL_SIZE', 'SERVICE_CLIENT_SECRET',
-    'READONLY_CLIENT_SECRET', 'ADMIN_CLIENT_SECRET', 'DATABASE_ENCRYPTION_KEY',
-    'IDENTITY_ENCRYPTION_KEY', 'ALLOW_CLIENT_REGISTRATION', 'LOG_LEVEL')
-
-function Convert-KitLegacyEnv {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
-        Justification = 'Always called unconditionally by the kit''s own non-interactive scripts, never interactively, so there is no caller that would want to preview or skip the .env rewrite with -WhatIf/-Confirm.')]
-    param()
-    $envFile = Get-KitEnvFile
-    $exampleFile = Join-Path $script:KitDir '.env.example'
-    if (-not (Test-Path -LiteralPath $envFile)) { return }
-    $todo = @()
-    foreach ($suffix in ($script:KitLegacyCmsSuffixes + 'IMAGE')) {
-        if (-not (Test-KitEnvHasKey -Name "CMS_$suffix")) { continue }
-        if (Test-KitEnvHasKey -Name "CONFIGURATION_SERVICE_$suffix") {
-            Write-KitWarn ("$envFile has both CMS_$suffix and CONFIGURATION_SERVICE_$suffix; keeping " +
-                "CONFIGURATION_SERVICE_$suffix. Delete the unused CMS_$suffix line.")
-            continue
-        }
-        $todo += $suffix
-    }
-    if ($todo.Count -eq 0) { return }
-
-    $backup = "$envFile.pre-beta2.bak"
-    if (-not (Test-Path -LiteralPath $backup)) {
-        # Owner-only (0600) before any secret is written, as for .env itself. Windows has no Unix mode.
-        [System.IO.File]::WriteAllBytes($backup, [byte[]]::new(0))
-        if (-not $IsWindows) {
-            [System.IO.File]::SetUnixFileMode($backup,
-                [System.IO.UnixFileMode]::UserRead -bor [System.IO.UnixFileMode]::UserWrite)
-        }
-        [System.IO.File]::WriteAllBytes($backup, [System.IO.File]::ReadAllBytes($envFile))
-    }
-    $lines = @(Get-Content -LiteralPath $envFile)
-    $newLines = foreach ($line in $lines) {
-        $renamed = $line
-        foreach ($suffix in $todo) {
-            if ($line.StartsWith("CMS_$suffix=")) {
-                $renamed = "CONFIGURATION_SERVICE_$suffix=" + $line.Substring("CMS_$suffix=".Length)
-            }
-        }
-        $renamed
-    }
-    Set-Content -LiteralPath $envFile -Value $newLines
-    # An image pin is not a user setting: the old value is a beta1 image, which this kit's init
-    # steps and compose files are not built for. Use the kit's pinned image instead.
-    if ($todo -contains 'IMAGE') {
-        $image = (Select-String -LiteralPath $exampleFile -Pattern '^CONFIGURATION_SERVICE_IMAGE=' |
-            Select-Object -First 1).Line
-        if (-not $image) { Stop-KitWithError "CONFIGURATION_SERVICE_IMAGE not found in $exampleFile" }
-        Set-KitEnvValue -Name 'CONFIGURATION_SERVICE_IMAGE' -Value $image.Substring($image.IndexOf('=') + 1)
-    }
-    Write-KitLog ("Upgraded $envFile from 8.1.0-beta1: renamed CMS_<NAME> to " +
-        'CONFIGURATION_SERVICE_<NAME> for:')
-    Write-KitLog " $($todo -join ' '). Existing values were kept. The previous file is saved as $backup."
-    if ($todo -contains 'IMAGE') {
-        Write-KitLog ('CONFIGURATION_SERVICE_IMAGE now uses the image pinned in .env.example; check ' +
-            'DMS_IMAGE and the other image pins there too.')
-    }
-}
-
-# ------------------------------------------------------------------------------------------------
 # Secret generation. LOCAL DEVELOPMENT ONLY -- see .env.example's header. Every generated value has
 # at least one lowercase letter, one uppercase letter, one digit, and one special character, which
 # satisfies both the 32-128 character client-secret rule and the exactly-32-character
@@ -459,8 +387,8 @@ function Assert-KitDatabaseVolume {
     if ($image -match '^(\S*/)?postgres:(\d+)' -and [int]$Matches[2] -lt 18) {
         Stop-KitWithError ("POSTGRES_IMAGE in $(Get-KitEnvFile) pins PostgreSQL $($Matches[2]) ($image), " +
             'but this kit mounts the database volume for PostgreSQL 18 and later, so the data would ' +
-            'not be kept. This looks like a beta1 .env, which also pins a beta1 DMS_IMAGE. Run ' +
-            './reset.ps1 -Force to DELETE the old database, delete .env, and start over. See ' +
+            'not be kept. This looks like a beta1 .env, which also pins a beta1 DMS_IMAGE. Delete .env ' +
+            'and run ./start.ps1 again, then follow ' +
             "'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md. Nothing was changed.")
     }
     $project = Get-KitEnvValue -Name 'KIT_PROJECT_NAME' -Default 'edfi-pilot'
@@ -478,8 +406,8 @@ function Assert-KitDatabaseVolume {
     Stop-KitWithError ("The Docker volume $volume holds a PostgreSQL $pgVersion database in the layout " +
         'used before PostgreSQL 18. The PostgreSQL 18 image in this kit cannot use it and would start ' +
         'an empty database next to it. Nothing was changed or deleted. To discard it, run ' +
-        './reset.ps1 -Force, delete .env, and start over. See ' +
-        "'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md.")
+        './reset.ps1 -Force -Start. If this .env came from beta1, see ' +
+        "'Upgrading from 8.1.0-beta1' in docs/troubleshooting.md first.")
 }
 
 # Get-KitSecretKeys -Path P -- the variable names in .env.example's secrets: everything under a
@@ -551,8 +479,6 @@ function Initialize-KitEnvFile {
         Write-KitLog "Values are never printed; see $envFile if you need one of them."
         return
     }
-
-    Convert-KitLegacyEnv
 
     $missing = @()
     foreach ($line in Get-Content -LiteralPath $exampleFile) {

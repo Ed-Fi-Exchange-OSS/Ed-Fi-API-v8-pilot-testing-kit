@@ -170,18 +170,9 @@ There is no in-place upgrade. 8.1.0-beta2 renames the `.env` variables, changes 
 moves to PostgreSQL 18, which cannot read a PostgreSQL 16 data volume. Delete the old kit and start
 over. This deletes all Ed-Fi API v8 and Configuration Service data in the kit.
 
-1. **Reset.** This removes the containers and volumes:
-
-   ```shell
-   # Bash
-   ./reset.sh --force
-
-   # PowerShell
-   .\reset.ps1 -Force
-   ```
-
-2. **Delete `.env`.** Reset keeps `.env`, and your beta1 file still pins beta1 images (including
-   `DMS_IMAGE`). With no volumes left, regenerating the secrets is safe.
+1. **Delete `.env`.** It still pins beta1 images (including `DMS_IMAGE`) and uses the old `CMS_*`
+   variable names, and `reset` keeps `.env`. Nothing in it is worth keeping: the reset below removes
+   every volume, so regenerating the secrets is safe.
 
    ```shell
    # Bash
@@ -191,8 +182,23 @@ over. This deletes all Ed-Fi API v8 and Configuration Service data in the kit.
    Remove-Item .env
    ```
 
+2. **Reset.** Compose needs a current `.env` even to tear the stack down, so run `start` first. It
+   creates a new `.env` and then stops, without changing anything, because the old PostgreSQL 16
+   volume is still there. Then reset, which removes the containers and volumes and starts the new
+   stack:
+
+   ```shell
+   # Bash
+   ./start.sh
+   ./reset.sh --force --start
+
+   # PowerShell
+   .\start.ps1
+   .\reset.ps1 -Force -Start
+   ```
+
 3. **Delete `http/.env`** if you created one for the REST Client files. Copy `http/.env.example` again
    after the new stack is running.
-4. **Start fresh.** Follow [Setup](../README.md#setup) from the beginning. Reset also replaced the
-   credentials under `.runtime/`, so any you saved from there are invalid.
+4. **Continue with Setup.** Pick up [Setup](../README.md#setup) at the first step you haven't done.
+   Reset also replaced the credentials under `.runtime/`, so any you saved from there are invalid.
 
