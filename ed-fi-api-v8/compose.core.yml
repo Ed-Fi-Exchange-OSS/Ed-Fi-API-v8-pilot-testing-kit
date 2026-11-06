@@ -16,7 +16,24 @@ services:
   db:
     image: ${POSTGRES_IMAGE:?POSTGRES_IMAGE must be set in .env}
     # Schema provisioning runs as one large transaction and exhausts the default lock budget.
-    command: ["postgres", "-c", "max_locks_per_transaction=256", "-c", "max_connections=${POSTGRES_MAX_CONNECTIONS:-200}"]
+    # The four tuning flags default to PostgreSQL's stock values; see "Tuning PostgreSQL for load tests" in the README.
+    command:
+      - postgres
+      - -c
+      - max_locks_per_transaction=256
+      - -c
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-200}
+      - -c
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}
+      - -c
+      - work_mem=${POSTGRES_WORK_MEM:-4MB}
+      - -c
+      - max_wal_size=${POSTGRES_MAX_WAL_SIZE:-1GB}
+      - -c
+      - checkpoint_timeout=${POSTGRES_CHECKPOINT_TIMEOUT:-5min}
+    # /dev/shm size (Docker's own default is 64m). Raise it only if parallel queries fail with
+    # "could not resize shared memory segment".
+    shm_size: ${POSTGRES_SHM_SIZE:-64m}
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}

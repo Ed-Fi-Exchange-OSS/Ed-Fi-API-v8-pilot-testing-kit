@@ -33,6 +33,7 @@ defined the first time they're used; the full set of definitions is in the
   - [Things worth knowing before you dig in](#things-worth-knowing-before-you-dig-in)
   - [The populated template](#the-populated-template)
   - [Logs](#logs)
+  - [Tuning PostgreSQL for load tests](#tuning-postgresql-for-load-tests)
   - [Privacy](#privacy)
   - [Stopping, resetting, and switching templates](#stopping-resetting-and-switching-templates)
   - [Troubleshooting](#troubleshooting)
@@ -508,6 +509,52 @@ timing claims into these numbers beyond "how long will my own first start take."
   log lines for that request.
 - `MASK_REQUEST_BODY_IN_LOGS=true` (the default) keeps request bodies out of `Debug`-level logs --
   leave it on unless you specifically need bodies and understand they may contain submitted data.
+
+## Tuning PostgreSQL for load tests
+
+The kit runs PostgreSQL with its stock settings so it stays light on a laptop. Four settings are
+exposed in `.env` (defaults shown are the stock values):
+
+| Variable                      | Default |
+| ----------------------------- | ------- |
+| `POSTGRES_SHARED_BUFFERS`     | `128MB` |
+| `POSTGRES_WORK_MEM`           | `4MB`   |
+| `POSTGRES_MAX_WAL_SIZE`       | `1GB`   |
+| `POSTGRES_CHECKPOINT_TIMEOUT` | `5min`  |
+
+**Suggested load-test profile** (from a tester):
+
+```text
+POSTGRES_SHARED_BUFFERS=2560MB
+POSTGRES_WORK_MEM=32MB
+POSTGRES_MAX_WAL_SIZE=8GB
+POSTGRES_CHECKPOINT_TIMEOUT=30min
+```
+
+This is one tester's observation from a single small side-by-side run, not a guarantee. The tuned
+stack was modestly faster, and the stock stack produced occasional HTTP 502 responses on token
+requests under load that the tuned stack did not. Your results will depend on your hardware and
+workload; treat the profile as a starting point and compare against your own baseline.
+
+Things to know:
+
+- **Memory.** `shared_buffers=2560MB` (2.5 GB) needs Docker Desktop (or the WSL 2 VM) to have
+  comfortably more memory than that, since the other services need memory too. On Windows, raise
+  `memory=` in `%UserProfile%\.wslconfig` and run `wsl --shutdown`. `work_mem` is per sort/hash
+  operation per connection, so it can multiply under concurrency.
+- **Shared memory (`/dev/shm`).** `shared_buffers` is allocated from regular memory, not `/dev/shm`,
+  so the profile above does not need a larger `shm_size`. Docker's 64 MB `/dev/shm` is used by
+  parallel queries; if you see `could not resize shared memory segment`, raise `POSTGRES_SHM_SIZE`
+  (for example `256m`).
+- **Disk and recovery.** A larger `max_wal_size` and longer `checkpoint_timeout` mean fewer
+  checkpoints but more WAL on disk (up to about 8 GB here) and a longer crash recovery after an
+  unclean stop.
+- **Applying changes.** The settings are read when the container starts, so recreate the `db`
+  container: run `./start.sh` / `start.ps1`, or `docker compose up -d db`. The `db-data` volume is
+  kept, so no data is lost; no reset is needed. Verify with
+  `docker compose exec db psql -U postgres -c "SHOW shared_buffers"`.
+- **Existing `.env` files.** Start warns about variables missing from your `.env` and prints their
+  defaults; you do not need to add them unless you want to change them.
 
 ## Privacy
 
