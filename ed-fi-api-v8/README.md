@@ -242,6 +242,12 @@ WARNING: this secret cannot be recovered later -- store it now.
 The script also makes one authorized request with the new credential before printing this, so a
 successful run means the credential already works end to end with no extra configuration.
 
+> **If the secret contains `$`:** Configuration Service generates integration secrets, and they can
+> include `$`. Docker Compose interpolates `$` in `.env` and `env_file` values, so when you copy a
+> credential into a Compose env file of your own, write each `$` as `$$`; otherwise authentication
+> fails with a `401`. Use the secret exactly as printed everywhere else (the credential JSON file,
+> `curl -u`, `.http` files, the token request). The kit's own generated `.env` secrets never contain `$`.
+
 ### 5. Run the smoke test
 
 ```shell

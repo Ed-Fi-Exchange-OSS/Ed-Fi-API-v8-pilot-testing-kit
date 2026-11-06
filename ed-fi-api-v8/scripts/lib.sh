@@ -172,7 +172,8 @@ kit_env_set() {
 _KIT_LOWER='abcdefghijklmnopqrstuvwxyz'
 _KIT_UPPER='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 _KIT_DIGIT='0123456789'
-# No '$': Compose interpolates it in .env values, which would corrupt the secret.
+# No '$' (in both the full and safe pools): Compose interpolates it in .env and env_file values (it would need
+# writing as '$$'), which would corrupt the secret and make authentication fail with a 401. Keep lib.sh and lib.ps1 identical.
 # No '&' or '=': CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET (and the other
 # CONFIGURATION_SERVICE_*_CLIENT_SECRET values generated from this pool) is embedded unescaped into
 # application/x-www-form-urlencoded request bodies built by naive string concatenation -- see
