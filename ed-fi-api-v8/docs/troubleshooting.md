@@ -94,6 +94,16 @@ The first `up` on a clean host also builds the `tools` image (a locally built im
 one-shot init step) and, on `DATABASE_TEMPLATE=populated`, loads the sample data set -- budget
 several minutes for a clean first start before concluding something has hung.
 
+## Token requests return HTTP 429
+
+Configuration Service rate-limits its `/connect/*` token routes (8.1.0 defaults: 120 requests per
+source per window, 30 per client, 60-second window). Ed-Fi API v8 proxies clients' token requests to
+Configuration Service, so they may all count against one source. If many clients or frequent token
+refreshes get 429, raise `CONFIGURATION_SERVICE_CONNECT_RATE_LIMIT_SOURCE_PERMIT_LIMIT` (and, if one
+client is the problem, `..._CLIENT_PERMIT_LIMIT`) in `.env`, then `./start.sh` to recreate the `config`
+container. Also reuse tokens until they expire instead of requesting one per call. This is separate
+from the NGINX `RATE_LIMIT_*` settings, which limit API requests.
+
 ## Volume reset
 
 Use `./reset.sh` / `.ps1` to return to a clean state -- for a corrupted environment, or because you
@@ -166,7 +176,7 @@ bring up every dependency on its own.
 
 ## Upgrading from 8.1.0-beta1
 
-There is no in-place upgrade. 8.1.0-beta2 renames the `.env` variables, changes every image pin, and
+There is no in-place upgrade. 8.1.0 renames the `.env` variables, changes every image pin, and
 moves to PostgreSQL 18, which cannot read a PostgreSQL 16 data volume. Delete the old kit and start
 over. This deletes all Ed-Fi API v8 and Configuration Service data in the kit.
 

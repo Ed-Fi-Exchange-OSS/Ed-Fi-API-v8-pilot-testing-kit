@@ -26,7 +26,7 @@ FROM ${DOTNET_SDK_IMAGE} AS build
 # NuGet v3 "flat container" (PackageBaseAddress) of the Ed-Fi Azure Artifacts feed. Resolved from
 # https://pkgs.dev.azure.com/ed-fi-alliance/Ed-Fi-Alliance-OSS/_packaging/EdFi/nuget/v3/index.json
 ARG EDFI_NUGET_FLAT_BASE=https://pkgs.dev.azure.com/ed-fi-alliance/Ed-Fi-Alliance-OSS/_packaging/EdFi/nuget/v3/flat2
-ARG SCHEMATOOLS_VERSION=8.1.0-beta.0.1.32
+ARG SCHEMATOOLS_VERSION=8.1.0
 ARG SCHEMATOOLS_SHA256=30e61643c5a27b74d19e82931ec409c659ffd5b86fcbd9c049a0aa5f558cc059
 ARG BULKLOADCLIENT_VERSION=7.3.20162
 ARG BULKLOADCLIENT_SHA256=8149171a717297314a1b3429f59ca67259df9d458f8537fa6fa8d9170cf6390c
@@ -83,7 +83,7 @@ RUN dotnet tool install edfi.api.schematools \
 FROM ${DOTNET_RUNTIME_IMAGE} AS final
 
 ARG DOTNET_RUNTIME_IMAGE
-ARG SCHEMATOOLS_VERSION=8.1.0-beta.0.1.32
+ARG SCHEMATOOLS_VERSION=8.1.0
 ARG BULKLOADCLIENT_VERSION=7.3.20162
 
 LABEL org.opencontainers.image.title="Ed-Fi pilot kit tools" \

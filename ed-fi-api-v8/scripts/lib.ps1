@@ -237,7 +237,9 @@ function Set-KitEnvValue {
     if (-not $found) {
         $newLines = @($newLines) + "$Name=$Value"
     }
-    Set-Content -LiteralPath $file -Value $newLines
+    # LF endings, not Set-Content's platform default (CRLF on Windows): bash tools such as
+    # QA-host-checks.sh read .env, and a trailing CR would end up inside every value.
+    [System.IO.File]::WriteAllText($file, ((@($newLines) -join "`n") + "`n"))
 }
 
 # ------------------------------------------------------------------------------------------------

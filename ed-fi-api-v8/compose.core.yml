@@ -59,6 +59,11 @@ services:
       ClaimsOptions__ClaimsSource: Embedded
       ClaimsOptions__DataStandardVersion: "5.2"
       IdentitySettings__AllowRegistration: ${CONFIGURATION_SERVICE_ALLOW_CLIENT_REGISTRATION:-false}
+      # Rate limit on CS's /connect/* routes; defaults are the 8.1.0 values.
+      ConnectRateLimit__Enabled: ${CONFIGURATION_SERVICE_CONNECT_RATE_LIMIT_ENABLED:-true}
+      ConnectRateLimit__SourcePermitLimit: ${CONFIGURATION_SERVICE_CONNECT_RATE_LIMIT_SOURCE_PERMIT_LIMIT:-120}
+      ConnectRateLimit__ClientPermitLimit: ${CONFIGURATION_SERVICE_CONNECT_RATE_LIMIT_CLIENT_PERMIT_LIMIT:-30}
+      ConnectRateLimit__WindowSeconds: ${CONFIGURATION_SERVICE_CONNECT_RATE_LIMIT_WINDOW_SECONDS:-60}
       IdentitySettings__ConfigServiceRole: cms-client
       IdentitySettings__ClientRole: dms-client
       IdentitySettings__Authority: http://config:8081
@@ -109,7 +114,7 @@ services:
       # is mapped alongside it -- Ed-Fi API v8 gates both behind the same ManagementEndpoints:Enabled switch, so
       # there is no way to enable one without the other. Both return 401/403 to any bearer that lacks
       # the exact role below; false unmaps the routes entirely (HTTP 404).
-      # beta2 binds AppSettings:ManagementEndpoints:Enabled; the beta1-era EnableManagementEndpoints /
+      # 8.1.0 binds AppSettings:ManagementEndpoints:Enabled; the beta1-era EnableManagementEndpoints /
       # EnableClaimsetReload keys are ignored, leaving the routes unmapped (fallback 404).
       AppSettings__ManagementEndpoints__Enabled: ${DMS_CLAIMSET_RELOAD_ENABLED:-true}
       # The one role a bearer token must carry (under JwtAuthentication__RoleClaimType below) to call
