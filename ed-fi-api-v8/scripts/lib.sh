@@ -38,6 +38,9 @@
 #                                     Refuses (kit_die) to generate new secrets if .env is missing
 #                                     but this kit's Docker volumes still exist.
 #   kit_check_public_origin          kit_die unless PUBLIC_ORIGIN's port matches HTTPS_PORT
+#   kit_check_ports                  kit_die if HTTPS_PORT, HTTP_PORT, or POSTGRES_PORT already accepts
+#                                     connections (unless the kit's own nginx/db is running); names
+#                                     the .env variables to change
 #   kit_ensure_certs                 generate ssl/server.{crt,key} if either is missing
 #   kit_ensure_dirs                  create .runtime/ and ${LOG_DIR:-./logs}/nginx
 #   kit_compose_failures [up-output-file]
@@ -446,6 +449,50 @@ kit_check_public_origin() {
     [ "$port" = "443" ] || expected="$base:$port"
     kit_die "HTTPS_PORT is $port but PUBLIC_ORIGIN is $origin, which implies port $effective." \
         "Set PUBLIC_ORIGIN=$expected in $(_kit_env_file) (or change HTTPS_PORT to match)."
+}
+
+# _kit_port_in_use <host> <port> -- true if something already accepts TCP connections there. A
+# connect-and-close probe: it binds nothing and changes nothing. Uses bash's /dev/tcp, so it needs no
+# extra tools (works in Git Bash); a 2-second cap applies where `timeout` exists.
+_kit_port_in_use() {
+    local host="$1" port="$2"
+    if command -v timeout >/dev/null 2>&1; then
+        # shellcheck disable=SC2016  # $1/$2 expand in the inner bash, by design
+        timeout 2 bash -c 'exec 3<>"/dev/tcp/$1/$2"' _ "$host" "$port" 2>/dev/null
+    else
+        (exec 3<>"/dev/tcp/$host/$port") 2>/dev/null
+    fi
+}
+
+# kit_check_ports -- fail before `docker compose up` if a host port the kit publishes is taken,
+# instead of leaving the user with Compose's bind error after images have been pulled and built.
+# A port the kit's own running service holds is skipped, so re-running start against a running stack
+# still exits 0. Only listeners reachable at BIND_ADDRESS are seen (a listener bound to some other
+# interface only is not detected; Compose then reports it).
+kit_check_ports() {
+    local bind probe_host conflicts="" entry var rest port service
+    bind=$(kit_env_get BIND_ADDRESS "127.0.0.1")
+    probe_host="$bind"
+    case "$bind" in 0.0.0.0 | "" | "::") probe_host="127.0.0.1" ;; esac
+    for entry in \
+        "HTTPS_PORT:$(kit_env_get HTTPS_PORT "443"):nginx" \
+        "HTTP_PORT:$(kit_env_get HTTP_PORT "80"):nginx" \
+        "POSTGRES_PORT:$(kit_env_get POSTGRES_PORT "5435"):db"; do
+        var="${entry%%:*}"
+        rest="${entry#*:}"
+        port="${rest%%:*}"
+        service="${rest#*:}"
+        kit_stack_running "$service" && continue
+        if _kit_port_in_use "$probe_host" "$port"; then
+            conflicts="$conflicts $var=$port"
+        fi
+    done
+    [ -n "$conflicts" ] || return 0
+    kit_warn "These host ports are already in use on $probe_host:$conflicts"
+    kit_warn "Pick free ports by setting the variable(s) above in $(_kit_env_file), then run start again."
+    kit_warn "Example: HTTPS_PORT=8443, HTTP_PORT=8080, PUBLIC_ORIGIN=https://localhost:8443"
+    kit_warn "PUBLIC_ORIGIN must carry the same port as HTTPS_PORT (omit the port only for 443)."
+    kit_die "port conflict; nothing was started."
 }
 
 kit_ensure_certs() {

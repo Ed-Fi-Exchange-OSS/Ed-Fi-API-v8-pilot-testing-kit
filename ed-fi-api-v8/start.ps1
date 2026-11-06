@@ -17,9 +17,11 @@
     1. Checks that Docker is running and Compose 2.20 or later is available.
     2. Creates .env from .env.example with freshly generated local secrets, if .env doesn't exist
        yet (an existing .env is never modified; missing variables are only reported).
-    3. Generates a local, self-signed TLS certificate under ssl/, if one doesn't exist yet.
-    4. Creates .runtime/ and the NGINX log directory, if needed.
-    5. Runs `docker compose up -d --build --wait`.
+    3. Stops, naming the .env variables to change, if HTTPS_PORT, HTTP_PORT, or POSTGRES_PORT is
+       already in use on this host (PUBLIC_ORIGIN must carry the same port as HTTPS_PORT).
+    4. Generates a local, self-signed TLS certificate under ssl/, if one doesn't exist yet.
+    5. Creates .runtime/ and the NGINX log directory, if needed.
+    6. Runs `docker compose up -d --build --wait`.
 
     On success, prints the kit's URLs, the template actually in use, and the bootstrap credentials
     file path. On failure, shows Compose's own error, names the service(s) that failed, shows their
@@ -63,6 +65,7 @@ Assert-KitComposeAvailable
 Initialize-KitEnvFile
 Assert-KitDatabaseVolume
 Assert-KitPublicOrigin
+Assert-KitPortsFree
 
 if ($Template) {
     $previous = Get-KitEnvValue -Name 'DATABASE_TEMPLATE' -Default 'minimal'
