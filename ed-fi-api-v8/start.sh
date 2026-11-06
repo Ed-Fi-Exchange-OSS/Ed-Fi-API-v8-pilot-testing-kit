@@ -26,9 +26,11 @@ Starts the Ed-Fi API v8 pilot kit:
   1. Checks that Docker is running and Compose 2.20 or later is available.
   2. Creates .env from .env.example with freshly generated local secrets, if .env doesn't exist yet
      (an existing .env is never modified; missing variables are only reported).
-  3. Generates a local, self-signed TLS certificate under ssl/, if one doesn't exist yet.
-  4. Creates .runtime/ and the NGINX log directory, if needed.
-  5. Runs `docker compose up -d --build --wait`.
+  3. Stops, naming the .env variables to change, if HTTPS_PORT, HTTP_PORT, or POSTGRES_PORT is
+     already in use on this host (PUBLIC_ORIGIN must carry the same port as HTTPS_PORT).
+  4. Generates a local, self-signed TLS certificate under ssl/, if one doesn't exist yet.
+  5. Creates .runtime/ and the NGINX log directory, if needed.
+  6. Runs `docker compose up -d --build --wait`.
 
 Options:
   --template minimal|populated  Set DATABASE_TEMPLATE in .env before starting. Only takes effect on
@@ -79,6 +81,7 @@ kit_require_compose
 kit_ensure_env
 kit_check_db_volume
 kit_check_public_origin
+kit_check_ports
 
 if [ -n "$template" ]; then
     previous=$(kit_env_get DATABASE_TEMPLATE "minimal")

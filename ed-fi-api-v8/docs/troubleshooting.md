@@ -11,6 +11,12 @@ host, Compose will fail to bring up `nginx` or `db`. Change the conflicting valu
 starting -- or before re-running `start` if you already have a `.env` -- and start again. No other
 host port is published by this kit.
 
+`start` checks these three ports before it runs Compose. If something is already accepting
+connections on one, it stops without starting anything and names the variable(s) to change. It skips
+the check for a port the kit's own running `nginx` or `db` holds, so re-running `start` on a running
+stack still works. The check only sees listeners reachable at `BIND_ADDRESS`; a conflict it misses
+still surfaces as Compose's bind error.
+
 Changing `HTTPS_PORT` also requires changing `PUBLIC_ORIGIN`, because the printed URLs, the saved
 credential files (token URL, `apiBaseUrl`, and `dataApiBaseUrl`), and the CORS origins are all built from
 `PUBLIC_ORIGIN`. For example, with `HTTPS_PORT=8443` set `PUBLIC_ORIGIN=https://localhost:8443`; with

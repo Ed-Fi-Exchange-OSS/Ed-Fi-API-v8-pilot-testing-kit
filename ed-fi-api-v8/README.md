@@ -61,7 +61,8 @@ defined the first time they're used; the full set of definitions is in the
   start after a `reset`, the kit downloads the Ed-Fi Data Standard from GitHub. Once the kit is
   built and started, it makes no outbound calls of its own. The one exception is your browser:
   Swagger UI loads its files from `unpkg.com`.
-- **Free host ports**, all configurable in `.env` if they're already taken on your machine:
+- **Free host ports**, all configurable in `.env` if they're already taken on your machine (if you
+  change `HTTPS_PORT`, change `PUBLIC_ORIGIN` too; see [step 2](#2-optional-review-configuration-before-the-first-start)):
   - `80` (`HTTP_PORT`) -- redirects to HTTPS
   - `443` (`HTTPS_PORT`) -- the kit's HTTPS ingress
   - `5435` (`POSTGRES_PORT`) -- PostgreSQL, bound to `127.0.0.1` only, for host database tools
@@ -135,6 +136,22 @@ Only do this yourself first if you need to change something before the first sta
 ```bash
 cp .env.example .env
 ```
+
+> [!IMPORTANT]
+> **Is something on your machine already using port 443 or 80?** The kit binds both by default.
+> If so, set these three values in `.env` before the first start (`HTTPS_PORT` and `PUBLIC_ORIGIN`
+> must change together):
+>
+> ```shell
+> HTTPS_PORT=8443
+> HTTP_PORT=8080
+> PUBLIC_ORIGIN=https://localhost:8443
+> ```
+>
+> Then the kit is at `https://localhost:8443/api` instead of `https://localhost/api`. With the
+> default `443`, `PUBLIC_ORIGIN` has no port. `./start.sh`/`.ps1` checks the ports before starting
+> and tells you which variables to change if one is taken. Details:
+> [Port conflicts](docs/troubleshooting.md#port-conflicts).
 
 If you copy it yourself, the secret values stay at `.env.example`'s published placeholders (for
 example `POSTGRES_PASSWORD=LocalDevOnly-Postgres-1!`) until you change them, because an existing
