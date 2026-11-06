@@ -53,6 +53,13 @@ defined the first time they're used; the full set of definitions is in the
 - **Bash or PowerShell 7.** Every script comes as a `.sh` and a `.ps1`. The `.ps1` scripts need
   PowerShell 7 or later; run them from `pwsh`, not `powershell`. Windows PowerShell 5.1 isn't
   supported. Check your version with `$PSVersionTable`.
+  - **Windows without PowerShell 7:** use the `.sh` scripts from **Git Bash** (installed with
+    [Git for Windows](https://git-scm.com/download/win), so it is present wherever you cloned the
+    kit with Git). Open "Git Bash", `cd` to the kit directory, and follow the Bash commands
+    throughout this document. Docker Desktop must be running. The kit's scripts use the `openssl`
+    that ships with Git Bash, and you do not need to set `TMPDIR` or any other environment
+    variable. (The optional `curl`/`jq` examples later in this document need those tools on your
+    `PATH`; `curl` ships with Git Bash, `jq` does not.)
 - **An amd64 machine, ideally.** The kit hasn't been tested on macOS or on arm64 (for example,
   Apple Silicon Macs). It may work there, but nobody has checked.
 - **Internet access for the first build and start.** Docker pulls the container images, and the
@@ -110,8 +117,8 @@ detail on every claim set.
 
 ## Setup
 
-Each step below says what to run and what to expect before moving to the next one. Bash and
-PowerShell 7 commands behave identically.
+Each step below says what to run and what to expect before moving to the next one. Bash (including
+Git Bash on Windows) and PowerShell 7 commands behave identically.
 
 > [!IMPORTANT]
 > Already running a previous release (8.1.0-beta1 or earlier)? Don't try to upgrade in place. Delete
