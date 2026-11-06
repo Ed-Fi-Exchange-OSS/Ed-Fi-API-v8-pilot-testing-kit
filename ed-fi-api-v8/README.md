@@ -542,23 +542,24 @@ timing claims into these numbers beyond "how long will my own first start take."
 
 ## Tuning PostgreSQL for load tests
 
-The kit runs PostgreSQL with its stock settings so it stays light on a laptop. Four settings are
-exposed in `.env` (defaults shown are the stock values):
+The kit ships PostgreSQL settings tuned from a tester's load runs. Four settings are exposed in
+`.env`:
 
-| Variable                      | Default |
-| ----------------------------- | ------- |
-| `POSTGRES_SHARED_BUFFERS`     | `128MB` |
-| `POSTGRES_WORK_MEM`           | `4MB`   |
-| `POSTGRES_MAX_WAL_SIZE`       | `1GB`   |
-| `POSTGRES_CHECKPOINT_TIMEOUT` | `5min`  |
+| Variable                      | Kit default | PostgreSQL stock |
+| ----------------------------- | ----------- | ---------------- |
+| `POSTGRES_SHARED_BUFFERS`     | `2560MB`    | `128MB`          |
+| `POSTGRES_WORK_MEM`           | `32MB`      | `4MB`            |
+| `POSTGRES_MAX_WAL_SIZE`       | `8GB`       | `1GB`            |
+| `POSTGRES_CHECKPOINT_TIMEOUT` | `30min`     | `5min`           |
 
-**Suggested load-test profile** (from a tester):
+**On a small machine** (Docker or the WSL 2 VM with under roughly 4 GB of memory), set the stock
+values in `.env` instead:
 
 ```text
-POSTGRES_SHARED_BUFFERS=2560MB
-POSTGRES_WORK_MEM=32MB
-POSTGRES_MAX_WAL_SIZE=8GB
-POSTGRES_CHECKPOINT_TIMEOUT=30min
+POSTGRES_SHARED_BUFFERS=128MB
+POSTGRES_WORK_MEM=4MB
+POSTGRES_MAX_WAL_SIZE=1GB
+POSTGRES_CHECKPOINT_TIMEOUT=5min
 ```
 
 This is one tester's observation from a single small side-by-side run, not a guarantee. The tuned

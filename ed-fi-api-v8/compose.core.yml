@@ -24,13 +24,13 @@ services:
       - -c
       - max_connections=${POSTGRES_MAX_CONNECTIONS:-200}
       - -c
-      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-2560MB}
       - -c
-      - work_mem=${POSTGRES_WORK_MEM:-4MB}
+      - work_mem=${POSTGRES_WORK_MEM:-32MB}
       - -c
-      - max_wal_size=${POSTGRES_MAX_WAL_SIZE:-1GB}
+      - max_wal_size=${POSTGRES_MAX_WAL_SIZE:-8GB}
       - -c
-      - checkpoint_timeout=${POSTGRES_CHECKPOINT_TIMEOUT:-5min}
+      - checkpoint_timeout=${POSTGRES_CHECKPOINT_TIMEOUT:-30min}
     # /dev/shm size (Docker's own default is 64m). Raise it only if parallel queries fail with
     # "could not resize shared memory segment".
     shm_size: ${POSTGRES_SHM_SIZE:-64m}
