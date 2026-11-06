@@ -33,6 +33,7 @@ defined the first time they're used; the full set of definitions is in the
   - [Things worth knowing before you dig in](#things-worth-knowing-before-you-dig-in)
   - [The populated template](#the-populated-template)
   - [Logs](#logs)
+  - [Tuning PostgreSQL for load tests](#tuning-postgresql-for-load-tests)
   - [Privacy](#privacy)
   - [Stopping, resetting, and switching templates](#stopping-resetting-and-switching-templates)
   - [Troubleshooting](#troubleshooting)
@@ -53,6 +54,13 @@ defined the first time they're used; the full set of definitions is in the
 - **Bash or PowerShell 7.** Every script comes as a `.sh` and a `.ps1`. The `.ps1` scripts need
   PowerShell 7 or later; run them from `pwsh`, not `powershell`. Windows PowerShell 5.1 isn't
   supported. Check your version with `$PSVersionTable`.
+  - **Windows without PowerShell 7:** use the `.sh` scripts from **Git Bash** (installed with
+    [Git for Windows](https://git-scm.com/download/win), so it is present wherever you cloned the
+    kit with Git). Open "Git Bash", `cd` to the kit directory, and follow the Bash commands
+    throughout this document. Docker Desktop must be running. The kit's scripts use the `openssl`
+    that ships with Git Bash, and you do not need to set `TMPDIR` or any other environment
+    variable. (The optional `curl`/`jq` examples later in this document need those tools on your
+    `PATH`; `curl` ships with Git Bash, `jq` does not.)
 - **An amd64 machine, ideally.** The kit hasn't been tested on macOS or on arm64 (for example,
   Apple Silicon Macs). It may work there, but nobody has checked.
 - **Internet access for the first build and start.** Docker pulls the container images, and the
@@ -61,7 +69,8 @@ defined the first time they're used; the full set of definitions is in the
   start after a `reset`, the kit downloads the Ed-Fi Data Standard from GitHub. Once the kit is
   built and started, it makes no outbound calls of its own. The one exception is your browser:
   Swagger UI loads its files from `unpkg.com`.
-- **Free host ports**, all configurable in `.env` if they're already taken on your machine:
+- **Free host ports**, all configurable in `.env` if they're already taken on your machine (if you
+  change `HTTPS_PORT`, change `PUBLIC_ORIGIN` too; see [step 2](#2-optional-review-configuration-before-the-first-start)):
   - `80` (`HTTP_PORT`) -- redirects to HTTPS
   - `443` (`HTTPS_PORT`) -- the kit's HTTPS ingress
   - `5435` (`POSTGRES_PORT`) -- PostgreSQL, bound to `127.0.0.1` only, for host database tools
@@ -110,8 +119,8 @@ detail on every claim set.
 
 ## Setup
 
-Each step below says what to run and what to expect before moving to the next one. Bash and
-PowerShell 7 commands behave identically.
+Each step below says what to run and what to expect before moving to the next one. Bash (including
+Git Bash on Windows) and PowerShell 7 commands behave identically.
 
 > [!IMPORTANT]
 > Already running a previous release (8.1.0-beta1 or earlier)? Don't try to upgrade in place. Delete
@@ -135,6 +144,22 @@ Only do this yourself first if you need to change something before the first sta
 ```bash
 cp .env.example .env
 ```
+
+> [!IMPORTANT]
+> **Is something on your machine already using port 443 or 80?** The kit binds both by default.
+> If so, set these three values in `.env` before the first start (`HTTPS_PORT` and `PUBLIC_ORIGIN`
+> must change together):
+>
+> ```shell
+> HTTPS_PORT=8443
+> HTTP_PORT=8080
+> PUBLIC_ORIGIN=https://localhost:8443
+> ```
+>
+> Then the kit is at `https://localhost:8443/api` instead of `https://localhost/api`. With the
+> default `443`, `PUBLIC_ORIGIN` has no port. `./start.sh`/`.ps1` checks the ports before starting
+> and tells you which variables to change if one is taken. Details:
+> [Port conflicts](docs/troubleshooting.md#port-conflicts).
 
 If you copy it yourself, the secret values stay at `.env.example`'s published placeholders (for
 example `POSTGRES_PASSWORD=LocalDevOnly-Postgres-1!`) until you change them, because an existing
@@ -234,6 +259,12 @@ WARNING: this secret cannot be recovered later -- store it now.
 
 The script also makes one authorized request with the new credential before printing this, so a
 successful run means the credential already works end to end with no extra configuration.
+
+> **If the secret contains `$`:** Configuration Service generates integration secrets, and they can
+> include `$`. Docker Compose interpolates `$` in `.env` and `env_file` values, so when you copy a
+> credential into a Compose env file of your own, write each `$` as `$$`; otherwise authentication
+> fails with a `401`. Use the secret exactly as printed everywhere else (the credential JSON file,
+> `curl -u`, `.http` files, the token request). The kit's own generated `.env` secrets never contain `$`.
 
 ### 5. Run the smoke test
 
@@ -508,6 +539,53 @@ timing claims into these numbers beyond "how long will my own first start take."
   log lines for that request.
 - `MASK_REQUEST_BODY_IN_LOGS=true` (the default) keeps request bodies out of `Debug`-level logs --
   leave it on unless you specifically need bodies and understand they may contain submitted data.
+
+## Tuning PostgreSQL for load tests
+
+The kit ships PostgreSQL settings tuned from a tester's load runs. Four settings are exposed in
+`.env`:
+
+| Variable                      | Kit default | PostgreSQL stock |
+| ----------------------------- | ----------- | ---------------- |
+| `POSTGRES_SHARED_BUFFERS`     | `2560MB`    | `128MB`          |
+| `POSTGRES_WORK_MEM`           | `32MB`      | `4MB`            |
+| `POSTGRES_MAX_WAL_SIZE`       | `8GB`       | `1GB`            |
+| `POSTGRES_CHECKPOINT_TIMEOUT` | `30min`     | `5min`           |
+
+**On a small machine** (Docker or the WSL 2 VM with under roughly 4 GB of memory), set the stock
+values in `.env` instead:
+
+```text
+POSTGRES_SHARED_BUFFERS=128MB
+POSTGRES_WORK_MEM=4MB
+POSTGRES_MAX_WAL_SIZE=1GB
+POSTGRES_CHECKPOINT_TIMEOUT=5min
+```
+
+This is one tester's observation from a single small side-by-side run, not a guarantee. The tuned
+stack was modestly faster, and the stock stack produced occasional HTTP 502 responses on token
+requests under load that the tuned stack did not. Your results will depend on your hardware and
+workload; treat the profile as a starting point and compare against your own baseline.
+
+Things to know:
+
+- **Memory.** `shared_buffers=2560MB` (2.5 GB) needs Docker Desktop (or the WSL 2 VM) to have
+  comfortably more memory than that, since the other services need memory too. On Windows, raise
+  `memory=` in `%UserProfile%\.wslconfig` and run `wsl --shutdown`. `work_mem` is per sort/hash
+  operation per connection, so it can multiply under concurrency.
+- **Shared memory (`/dev/shm`).** `shared_buffers` is allocated from regular memory, not `/dev/shm`,
+  so the profile above does not need a larger `shm_size`. Docker's 64 MB `/dev/shm` is used by
+  parallel queries; if you see `could not resize shared memory segment`, raise `POSTGRES_SHM_SIZE`
+  (for example `256m`).
+- **Disk and recovery.** A larger `max_wal_size` and longer `checkpoint_timeout` mean fewer
+  checkpoints but more WAL on disk (up to about 8 GB here) and a longer crash recovery after an
+  unclean stop.
+- **Applying changes.** The settings are read when the container starts, so recreate the `db`
+  container: run `./start.sh` / `start.ps1`, or `docker compose up -d db`. The `db-data` volume is
+  kept, so no data is lost; no reset is needed. Verify with
+  `docker compose exec db psql -U postgres -c "SHOW shared_buffers"`.
+- **Existing `.env` files.** Start warns about variables missing from your `.env` and prints their
+  defaults; you do not need to add them unless you want to change them.
 
 ## Privacy
 

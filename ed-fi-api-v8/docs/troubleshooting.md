@@ -11,6 +11,12 @@ host, Compose will fail to bring up `nginx` or `db`. Change the conflicting valu
 starting -- or before re-running `start` if you already have a `.env` -- and start again. No other
 host port is published by this kit.
 
+`start` checks these three ports before it runs Compose. If something is already accepting
+connections on one, it stops without starting anything and names the variable(s) to change. It skips
+the check for a port the kit's own running `nginx` or `db` holds, so re-running `start` on a running
+stack still works. The check only sees listeners reachable at `BIND_ADDRESS`; a conflict it misses
+still surfaces as Compose's bind error.
+
 Changing `HTTPS_PORT` also requires changing `PUBLIC_ORIGIN`, because the printed URLs, the saved
 credential files (token URL, `apiBaseUrl`, and `dataApiBaseUrl`), and the CORS origins are all built from
 `PUBLIC_ORIGIN`. For example, with `HTTPS_PORT=8443` set `PUBLIC_ORIGIN=https://localhost:8443`; with
@@ -40,7 +46,20 @@ exact value to set if the two disagree.
   `ssl/server.crt` or `ssl/server.key` is missing, so this should only happen if certificate
   generation itself failed. Re-run `./ssl/generate-certificate.sh` directly and read its error
   output; it requires `openssl` on `PATH` (or PowerShell 7 for the `.ps1` version).
+- **Certificate generation fails under Git Bash on Windows** with errors about not being able to open
+  or write a file under `/tmp`: older copies of the script created its scratch files in Git Bash's
+  `/tmp`, which the Windows build of OpenSSL can't see. Current versions work in a temporary
+  `.generate.*` directory inside `ssl/` and need no setup. If you still have an old copy, update
+  the kit, or as a workaround set `TMPDIR` to a Windows-visible directory, for example
+  `export TMPDIR="$(cygpath -m "$LOCALAPPDATA/Temp")"`. A leftover `ssl/.generate.*` directory
+  (from an interrupted run) is safe to delete.
 
+## Windows without PowerShell 7
+
+The `.ps1` scripts require PowerShell 7 (`pwsh`) and refuse to run in Windows PowerShell 5.1. If
+PowerShell 7 isn't installed and you can't install it, run the `.sh` scripts from Git Bash instead.
+They behave the same as the `.ps1` scripts. Open Git Bash (installed with Git for Windows), `cd`
+to the kit directory, and use `./start.sh`, `./new-credential.sh`, and so on. 
 ## Startup timeouts and failures
 
 `start` runs `docker compose up -d --build --wait` and waits on service health rather than just
@@ -93,6 +112,16 @@ if one is invalid.
 The first `up` on a clean host also builds the `tools` image (a locally built image used by every
 one-shot init step) and, on `DATABASE_TEMPLATE=populated`, loads the sample data set -- budget
 several minutes for a clean first start before concluding something has hung.
+
+## Token requests return HTTP 429
+
+Configuration Service rate-limits its `/connect/*` token routes (8.1.0 defaults: 120 requests per
+source per window, 30 per client, 60-second window). Ed-Fi API v8 proxies clients' token requests to
+Configuration Service, so they may all count against one source. If many clients or frequent token
+refreshes get 429, raise `CONFIGURATION_SERVICE_CONNECT_RATE_LIMIT_SOURCE_PERMIT_LIMIT` (and, if one
+client is the problem, `..._CLIENT_PERMIT_LIMIT`) in `.env`, then `./start.sh` to recreate the `config`
+container. Also reuse tokens until they expire instead of requesting one per call. This is separate
+from the NGINX `RATE_LIMIT_*` settings, which limit API requests.
 
 ## Volume reset
 
@@ -166,7 +195,7 @@ bring up every dependency on its own.
 
 ## Upgrading from 8.1.0-beta1
 
-There is no in-place upgrade. 8.1.0-beta2 renames the `.env` variables, changes every image pin, and
+There is no in-place upgrade. 8.1.0 renames the `.env` variables, changes every image pin, and
 moves to PostgreSQL 18, which cannot read a PostgreSQL 16 data volume. Delete the old kit and start
 over. This deletes all Ed-Fi API v8 and Configuration Service data in the kit.
 

@@ -44,6 +44,9 @@ Public API (everything else here is a private helper, prefixed with an underscor
                                           Refuses (error) to generate new secrets if .env is missing
                                           but this kit's Docker volumes still exist.
     Assert-KitPublicOrigin               error unless PUBLIC_ORIGIN's port matches HTTPS_PORT
+    Assert-KitPortsFree                  error if HTTPS_PORT, HTTP_PORT, or POSTGRES_PORT already
+                                          accepts connections (unless the kit's own nginx/db is
+                                          running); names the .env variables to change
     Initialize-KitCertificates           generate ssl/server.{crt,key} if either is missing
     Initialize-KitDirectories            create .runtime/ and ${LOG_DIR:-./logs}/nginx
     Get-KitComposeFailures [-UpOutput L] one object (Service, Reason) per failing service: those
@@ -237,7 +240,9 @@ function Set-KitEnvValue {
     if (-not $found) {
         $newLines = @($newLines) + "$Name=$Value"
     }
-    Set-Content -LiteralPath $file -Value $newLines
+    # LF endings, not Set-Content's platform default (CRLF on Windows): bash tools such as
+    # QA-host-checks.sh read .env, and a trailing CR would end up inside every value.
+    [System.IO.File]::WriteAllText($file, ((@($newLines) -join "`n") + "`n"))
 }
 
 # ------------------------------------------------------------------------------------------------
@@ -251,7 +256,8 @@ function Set-KitEnvValue {
 $script:KitLower = 'abcdefghijklmnopqrstuvwxyz'
 $script:KitUpper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 $script:KitDigit = '0123456789'
-# No '$': Compose interpolates it in .env values, which would corrupt the secret.
+# No '$' (in both the full and safe pools): Compose interpolates it in .env and env_file values (it would need
+# writing as '$$'), which would corrupt the secret and make authentication fail with a 401. Keep lib.sh and lib.ps1 identical.
 # No '&' or '=': CONFIGURATION_SERVICE_ADMIN_CLIENT_SECRET (and the other CONFIGURATION_SERVICE_*_CLIENT_SECRET values generated from
 # this pool) is embedded unescaped into application/x-www-form-urlencoded request bodies built by
 # naive string concatenation -- see http/claimset-test.http's
@@ -524,6 +530,57 @@ function Assert-KitPublicOrigin {
     $expected = if ($port -eq '443') { $base } else { "${base}:$port" }
     Stop-KitWithError ("HTTPS_PORT is $port but PUBLIC_ORIGIN is $origin, which implies port " +
         "$effective. Set PUBLIC_ORIGIN=$expected in $(Get-KitEnvFile) (or change HTTPS_PORT to match).")
+}
+
+# Test-KitPortInUse -- true if something already accepts TCP connections at Address:Port. A
+# connect-and-close probe: it binds nothing and changes nothing; capped at 2 seconds.
+function Test-KitPortInUse {
+    param(
+        [Parameter(Mandatory)][string] $Address,
+        [Parameter(Mandatory)][int] $Port
+    )
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $connect = $client.ConnectAsync($Address, $Port)
+        return ($connect.Wait(2000) -and $client.Connected)
+    }
+    catch {
+        return $false
+    }
+    finally {
+        $client.Dispose()
+    }
+}
+
+# Assert-KitPortsFree -- fail before `docker compose up` if a host port the kit publishes is taken,
+# instead of leaving the user with Compose's bind error after images have been pulled and built. A
+# port the kit's own running service holds is skipped, so re-running start against a running stack
+# still exits 0. Only listeners reachable at BIND_ADDRESS are seen (a listener bound to some other
+# interface only is not detected; Compose then reports it).
+function Assert-KitPortsFree {
+    $bind = Get-KitEnvValue -Name 'BIND_ADDRESS' -Default '127.0.0.1'
+    $probeHost = if ($bind -in @('', '0.0.0.0', '::')) { '127.0.0.1' } else { $bind }
+    $checks = @(
+        @{ Name = 'HTTPS_PORT'; Default = '443'; Service = 'nginx' },
+        @{ Name = 'HTTP_PORT'; Default = '80'; Service = 'nginx' },
+        @{ Name = 'POSTGRES_PORT'; Default = '5435'; Service = 'db' }
+    )
+    $conflicts = @()
+    foreach ($check in $checks) {
+        $port = Get-KitEnvValue -Name $check.Name -Default $check.Default
+        if (Test-KitStackRunning -Service $check.Service) { continue }
+        $portNumber = 0
+        if (-not [int]::TryParse($port, [ref] $portNumber)) { continue }
+        if (Test-KitPortInUse -Address $probeHost -Port $portNumber) {
+            $conflicts += "$($check.Name)=$port"
+        }
+    }
+    if ($conflicts.Count -eq 0) { return }
+    Write-KitWarn "These host ports are already in use on ${probeHost}: $($conflicts -join ' ')"
+    Write-KitWarn "Pick free ports by setting the variable(s) above in $(Get-KitEnvFile), then run start again."
+    Write-KitWarn 'Example: HTTPS_PORT=8443, HTTP_PORT=8080, PUBLIC_ORIGIN=https://localhost:8443'
+    Write-KitWarn 'PUBLIC_ORIGIN must carry the same port as HTTPS_PORT (omit the port only for 443).'
+    Stop-KitWithError 'port conflict; nothing was started.'
 }
 
 function Initialize-KitCertificates {

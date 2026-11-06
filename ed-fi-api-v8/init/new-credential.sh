@@ -549,6 +549,14 @@ printf 'Data API:  %s\n' "$DATA_API_BASE_URL"
 # in a container and can't know it). Without it, fall back to a path relative to the kit folder.
 printf 'Saved to:  %s.runtime/credentials/%s.json\n' "${KIT_HOST_DIR:+${KIT_HOST_DIR%/}/}" "$NAME"
 printf 'WARNING: this secret cannot be recovered later -- store it now.\n'
+# The secret is minted by CS, not by the kit, so it can contain '$'. Compose interpolates '$' in .env and
+# env_file values; a participant copying it into their own Compose env file must write each '$' as '$$'.
+case "$CONFIGURATION_SERVICE_APPLICATION_SECRET" in
+    *'$'*)
+        printf 'NOTE: this secret contains "$". In a Docker Compose .env or env_file write each "$" as "$$".\n'
+        printf '      (The JSON file above and Basic-auth/curl/.http use are unaffected: use the secret as shown.)\n'
+        ;;
+esac
 if [ "$VERIFY_OK" != true ]; then
     printf 'WARNING: the first authorized request could not be verified; see the log output above.\n'
     printf '         The credential and its file were kept -- retry the request once the stack is up.\n'

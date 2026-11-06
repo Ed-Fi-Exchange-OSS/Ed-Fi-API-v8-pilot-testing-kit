@@ -44,7 +44,7 @@ note() { printf '    %s\n' "$*"; }
 pass() { PASSES+=("$1"); printf 'PASS  %s: %s\n' "$1" "$2"; }
 fail() { FAILS+=("$1"); printf 'FAIL  %s: %s\n' "$1" "$2"; }
 
-env_get() { grep -E "^$1=" .env | tail -n 1 | cut -d= -f2-; }
+env_get() { grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- | tr -d '\r'; }
 
 # Replaces VAR's value in .env (or appends it). awk reads the value from the environment, so no
 # character in it needs escaping.

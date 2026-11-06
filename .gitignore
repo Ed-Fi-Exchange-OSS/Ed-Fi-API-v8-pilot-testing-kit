@@ -10,6 +10,7 @@ ed-fi-api-v8/.env
 ed-fi-api-v8/.runtime/*
 !ed-fi-api-v8/.runtime/.gitkeep
 ed-fi-api-v8/logs/
+ed-fi-api-v8/ssl/.generate.*
 # Optional REST Client dotenv file holding credentials for http/*.http
 ed-fi-api-v8/http/.env
 ed-fi-api-v8/ssl/server.crt

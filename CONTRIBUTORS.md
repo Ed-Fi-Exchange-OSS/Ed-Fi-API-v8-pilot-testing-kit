@@ -10,3 +10,14 @@ contributors
 graph](https://github.com/Ed-Fi-Exchange-OSS/Ed-Fi-API-v8-pilot-testing-kit/network/dependencies).
 New contributors should add their name and e-mail address or link to GitHub
 profile to this file with their first pull request.
+
+## Special thanks to
+
+The following organizations have provided valuable feedback during the pilot testing process:
+
+- EdGraph
+- EduPoint
+- Education Analytics
+- EdWise
+- NEFEC
+- Skyward
