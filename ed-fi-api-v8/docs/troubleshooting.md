@@ -40,7 +40,20 @@ exact value to set if the two disagree.
   `ssl/server.crt` or `ssl/server.key` is missing, so this should only happen if certificate
   generation itself failed. Re-run `./ssl/generate-certificate.sh` directly and read its error
   output; it requires `openssl` on `PATH` (or PowerShell 7 for the `.ps1` version).
+- **Certificate generation fails under Git Bash on Windows** with errors about not being able to open
+  or write a file under `/tmp`: older copies of the script created its scratch files in Git Bash's
+  `/tmp`, which the Windows build of OpenSSL can't see. Current versions work in a temporary
+  `.generate.*` directory inside `ssl/` and need no setup. If you still have an old copy, update
+  the kit, or as a workaround set `TMPDIR` to a Windows-visible directory, for example
+  `export TMPDIR="$(cygpath -m "$LOCALAPPDATA/Temp")"`. A leftover `ssl/.generate.*` directory
+  (from an interrupted run) is safe to delete.
 
+## Windows without PowerShell 7
+
+The `.ps1` scripts require PowerShell 7 (`pwsh`) and refuse to run in Windows PowerShell 5.1. If
+PowerShell 7 isn't installed and you can't install it, run the `.sh` scripts from Git Bash instead.
+They behave the same as the `.ps1` scripts. Open Git Bash (installed with Git for Windows), `cd`
+to the kit directory, and use `./start.sh`, `./new-credential.sh`, and so on. 
 ## Startup timeouts and failures
 
 `start` runs `docker compose up -d --build --wait` and waits on service health rather than just

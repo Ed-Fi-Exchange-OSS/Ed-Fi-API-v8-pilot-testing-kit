@@ -48,13 +48,18 @@ fi
 command -v openssl >/dev/null 2>&1 ||
     fail "openssl was not found on PATH. Install OpenSSL, or run generate-certificate.ps1 with PowerShell 7."
 
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+# Work in a scratch directory inside ssl/ and give openssl only relative file names. Under Git Bash
+# on Windows, /tmp (and /c/... style paths) exist only inside the MSYS runtime; the Windows build of
+# OpenSSL can't see them, and the kit sets MSYS_NO_PATHCONV=1, which stops Git Bash from translating
+# them. Relative names resolve the same way for every OpenSSL build and every platform.
+work=$(mktemp -d "$ssl_dir/.generate.XXXXXX")
+trap 'cd "$ssl_dir" && rm -rf "$work"' EXIT
+cd "$work"
 
 # An explicit config (instead of -subj/-addext) behaves the same on OpenSSL 1.1, 3.x,
 # LibreSSL, and Git Bash. The extensions mirror a typical localhost development
 # certificate: an end-entity (CA:FALSE) server certificate.
-cat > "$work/openssl.cnf" <<'EOF'
+cat > openssl.cnf <<'EOF'
 [req]
 prompt = no
 distinguished_name = dn
@@ -74,9 +79,9 @@ EOF
 
 (
     umask 077
-    openssl req -x509 -config "$work/openssl.cnf" -newkey rsa:2048 -sha256 -nodes -days "$days" \
-        -keyout "$work/server.key" -out "$work/server.crt" 2>"$work/openssl.log" ||
-        { cat "$work/openssl.log" >&2; fail "openssl could not create the certificate."; }
+    openssl req -x509 -config openssl.cnf -newkey rsa:2048 -sha256 -nodes -days "$days" \
+        -keyout server.key -out server.crt 2>openssl.log ||
+        { cat openssl.log >&2; fail "openssl could not create the certificate."; }
 )
 
 chmod 644 "$work/server.crt"
